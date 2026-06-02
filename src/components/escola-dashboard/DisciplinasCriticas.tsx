@@ -102,12 +102,6 @@ export default function DisciplinasCriticas({
 }: Props) {
   return (
     <div className="space-y-8">
-      <GraficoDisciplinas
-        titulo="Componentes Curriculares Críticos — Geral"
-        descricao="Percentual geral de notas abaixo do básico por disciplina."
-        disciplinas={geral}
-      />
-
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
         <GraficoDisciplinas
           titulo="Ensino Fundamental"
@@ -121,6 +115,12 @@ export default function DisciplinasCriticas({
           disciplinas={medio}
         />
       </div>
+
+      <GraficoDisciplinas
+        titulo="Componentes Curriculares Críticos — Geral"
+        descricao="Percentual geral de notas abaixo do básico por disciplina."
+        disciplinas={geral}
+      />
     </div>
   );
 }

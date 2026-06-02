@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 type HeatmapData = {
   turmaId: string;
@@ -14,6 +16,7 @@ type HeatmapData = {
   alunos: {
     alunoId: string;
     nome: string;
+    numeroChamada: number;
     emAtencao: boolean;
     media: number | null;
     disciplinas: {
@@ -25,10 +28,6 @@ type HeatmapData = {
   }[];
 };
 
-type Props = {
-  escolaId: string;
-};
-
 function getClasseNota(nota: number | null) {
   if (nota === null) return "bg-zinc-800 text-zinc-500 ring-zinc-700";
   if (nota <= 4) return "bg-red-500/15 text-red-300 ring-red-500/30";
@@ -37,11 +36,18 @@ function getClasseNota(nota: number | null) {
   return "bg-blue-500/15 text-blue-300 ring-blue-500/30";
 }
 
-export default function HeatmapPedagogico({ escolaId }: Props) {
+type Props = {
+  bimestre: number;
+  turmaId?: string | null;
+};
+
+export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
+  const router = useRouter();
   const [data, setData] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [turmaSelecionada, setTurmaSelecionada] = useState("");
+  const [mostrarNomes, setMostrarNomes] = useState(true);
 
   useEffect(() => {
     async function carregarHeatmap() {
@@ -49,14 +55,9 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
         setLoading(true);
         setErro(null);
 
-        const response = await fetch(
-          `/api/dashboard/heatmap?escolaId=${escolaId}`,
-          {
-            method: "GET",
-            credentials: "include",
-          }
-        );
-
+        const params = new URLSearchParams({ bimestre: String(bimestre) });
+        if (turmaId) params.set("turma", turmaId);
+        const response = await fetch(`/api/dashboard/heatmap?${params.toString()}`);
         const json = await response.json();
 
         if (!response.ok) {
@@ -69,21 +70,16 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
           setTurmaSelecionada(json.data[0].turmaId);
         }
       } catch (error) {
-        setErro(
-          error instanceof Error
-            ? error.message
-            : "Erro inesperado ao carregar heatmap"
-        );
+        setErro(error instanceof Error ? error.message : "Erro inesperado ao carregar heatmap");
       } finally {
         setLoading(false);
       }
     }
 
     carregarHeatmap();
-  }, [escolaId]);
+  }, [bimestre, turmaId]);
 
-  const turmaAtual =
-    data.find((turma) => turma.turmaId === turmaSelecionada) ?? data[0];
+  const turmaAtual = data.find((t) => t.turmaId === turmaSelecionada) ?? data[0];
 
   if (loading) {
     return (
@@ -104,10 +100,16 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
   if (!turmaAtual) {
     return (
       <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-8 text-zinc-400 shadow-2xl backdrop-blur">
-        Nenhum dado encontrado.
+        Nenhum dado de heatmap disponível.
       </div>
     );
   }
+
+  const alunosOrdenados = [...turmaAtual.alunos].sort((a, b) =>
+    mostrarNomes
+      ? a.nome.localeCompare(b.nome)
+      : a.numeroChamada - b.numeroChamada
+  );
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
@@ -119,47 +121,62 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
           <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
             Mapa de desempenho
           </div>
-
           <h2 className="text-2xl font-black tracking-tight md:text-3xl">
             Heatmap Pedagógico
           </h2>
-
           <p className="mt-2 text-sm leading-relaxed text-zinc-400 md:text-base">
-            Notas por aluno e disciplina. A média é calculada automaticamente.
+            Notas por aluno e disciplina. Clique no aluno para ver o detalhamento.
           </p>
         </div>
 
-        <select
-          value={turmaAtual.turmaId}
-          onChange={(e) => setTurmaSelecionada(e.target.value)}
-          className="rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-white"
-        >
-          {data.map((turma) => (
-            <option key={turma.turmaId} value={turma.turmaId}>
-              {turma.turmaNome}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setMostrarNomes((v) => !v)}
+            className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+          >
+            {mostrarNomes ? (
+              <>
+                <EyeOff className="h-4 w-4" />
+                Ocultar nomes
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" />
+                Mostrar nomes
+              </>
+            )}
+          </button>
+
+          <select
+            value={turmaAtual.turmaId}
+            onChange={(e) => setTurmaSelecionada(e.target.value)}
+            className="rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-white"
+          >
+            {data.map((turma) => (
+              <option key={turma.turmaId} value={turma.turmaId}>
+                {turma.turmaNome}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="relative z-10 mt-8 overflow-x-auto rounded-2xl border border-zinc-800 bg-black/20">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 z-20 min-w-[280px] border border-zinc-800 bg-zinc-950 p-3 text-left text-zinc-200">
+              <th className="sticky left-0 z-20 min-w-[220px] border border-zinc-800 bg-zinc-950 p-3 text-left text-zinc-200">
                 Aluno
               </th>
-
-              {turmaAtual.disciplinas.map((disciplina) => (
+              {turmaAtual.disciplinas.map((d) => (
                 <th
-                  key={disciplina.id}
-                  title={disciplina.nome}
+                  key={d.id}
+                  title={d.nome}
                   className="min-w-[72px] border border-zinc-800 bg-zinc-950 p-3 text-center text-zinc-300"
                 >
-                  {disciplina.codigo.replace("C", "")}
+                  {d.codigo.replace("C", "")}
                 </th>
               ))}
-
               <th className="min-w-[100px] border border-zinc-800 bg-zinc-950 p-3 text-center text-zinc-200">
                 Média
               </th>
@@ -167,12 +184,15 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
           </thead>
 
           <tbody>
-            {turmaAtual.alunos.map((aluno) => (
+            {alunosOrdenados.map((aluno) => (
               <tr
                 key={aluno.alunoId}
-                className={
-                  aluno.emAtencao ? "bg-red-500/5" : "hover:bg-zinc-900/60"
-                }
+                onClick={() => router.push(`/dashboard/aluno/${aluno.alunoId}`)}
+                className={`cursor-pointer ${
+                  aluno.emAtencao
+                    ? "bg-red-500/5 hover:bg-red-500/10"
+                    : "hover:bg-zinc-800/60"
+                }`}
               >
                 <td
                   className={`sticky left-0 z-10 border border-zinc-800 p-3 font-semibold ${
@@ -181,31 +201,23 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
                       : "bg-zinc-950 text-zinc-100"
                   }`}
                 >
-                  {aluno.nome}
+                  {mostrarNomes
+                    ? aluno.nome
+                    : `Nº ${String(aluno.numeroChamada).padStart(2, "0")}`}
                 </td>
-
-                {aluno.disciplinas.map((disciplina) => (
+                {aluno.disciplinas.map((d) => (
                   <td
-                    key={disciplina.disciplinaId}
+                    key={d.disciplinaId}
                     className="border border-zinc-800 p-2 text-center"
-                    title={disciplina.disciplinaNome}
+                    title={d.disciplinaNome}
                   >
-                    <div
-                      className={`rounded-xl px-2 py-1.5 font-black ring-1 ${getClasseNota(
-                        disciplina.nota
-                      )}`}
-                    >
-                      {disciplina.nota ?? "-"}
+                    <div className={`rounded-xl px-2 py-1.5 font-black ring-1 ${getClasseNota(d.nota)}`}>
+                      {d.nota ?? "-"}
                     </div>
                   </td>
                 ))}
-
                 <td className="border border-zinc-800 p-2 text-center">
-                  <div
-                    className={`rounded-xl px-2 py-1.5 text-base font-black ring-1 ${getClasseNota(
-                      aluno.media
-                    )}`}
-                  >
+                  <div className={`rounded-xl px-2 py-1.5 text-base font-black ring-1 ${getClasseNota(aluno.media)}`}>
                     {aluno.media !== null ? aluno.media.toFixed(1) : "-"}
                   </div>
                 </td>
@@ -224,19 +236,15 @@ export default function HeatmapPedagogico({ escolaId }: Props) {
 
       <div className="relative z-10 mt-5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
         <p className="font-bold text-zinc-200">
-          Legenda das disciplinas da turma {turmaAtual.turmaNome}:
+          Legenda — {turmaAtual.turmaNome}:
         </p>
-
         <div className="mt-4 flex flex-wrap gap-2">
-          {turmaAtual.disciplinas.map((disciplina) => (
+          {turmaAtual.disciplinas.map((d) => (
             <span
-              key={disciplina.id}
+              key={d.id}
               className="rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-1.5 text-sm text-zinc-300"
             >
-              <strong className="text-white">
-                {disciplina.codigo.replace("C", "")}:
-              </strong>{" "}
-              {disciplina.nome}
+              <strong className="text-white">{d.codigo.replace("C", "")}:</strong> {d.nome}
             </span>
           ))}
         </div>

@@ -184,6 +184,16 @@ export function buildSchoolDashboard({
 
   const disciplinasCriticasMedio = calcularDisciplinasCriticas("medio");
 
+  const alunosPorMediaDesc = [...alunosComNota].sort(
+    (a, b) => (b.media ?? 0) - (a.media ?? 0)
+  );
+  const alunosPorMediaAsc = [...alunosComNota].sort(
+    (a, b) => (a.media ?? 10) - (b.media ?? 10)
+  );
+
+  const melhorAlunoDaTurma = alunosPorMediaDesc[0] ?? null;
+  const pioresAlunosDaTurma = alunosPorMediaAsc.slice(0, 3);
+
   return {
     alunosAtivos,
     alunosTransferidos,
@@ -199,6 +209,8 @@ export function buildSchoolDashboard({
     rankingTurmas,
     melhorTurma: rankingTurmas[0],
     turmaAlerta: rankingTurmas[rankingTurmas.length - 1],
+    melhorAlunoDaTurma,
+    pioresAlunosDaTurma,
 
     disciplinasCriticas: disciplinasCriticasGeral,
     disciplinasCriticasGeral,

@@ -10,10 +10,13 @@ import type {
   Turma,
 } from "../../../../lib/analytics/types";
 
+const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
+
 async function buscarTodasNotas(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  escolaId: string
-) {
+  escolaId: string,
+  bimestre: number
+): Promise<Nota[]> {
   const tamanhoPagina = 1000;
   let pagina = 0;
   let todasNotas: Nota[] = [];
@@ -26,15 +29,13 @@ async function buscarTodasNotas(
       .from("notas")
       .select("*")
       .eq("escola_id", escolaId)
+      .eq("bimestre", bimestre)
       .range(inicio, fim);
 
-    if (error) throw error;
-    if (!data || data.length === 0) break;
+    if (error || !data || data.length === 0) break;
 
     todasNotas = [...todasNotas, ...(data as Nota[])];
-
     if (data.length < tamanhoPagina) break;
-
     pagina++;
   }
 
@@ -43,75 +44,35 @@ async function buscarTodasNotas(
 
 export async function GET(request: Request) {
   const supabase = await createClient();
-
   const { searchParams } = new URL(request.url);
-  const escolaId = searchParams.get("escolaId");
+  const bimestre = Number(searchParams.get("bimestre") ?? "1");
+  const turmaId = searchParams.get("turma");
 
-  if (!escolaId) {
-    return NextResponse.json(
-      { error: "escolaId obrigatório" },
-      { status: 400 }
-    );
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json(
-      { error: "Não autenticado" },
-      { status: 401 }
-    );
-  }
-
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("id, role, escola_id, ativo")
-    .eq("auth_id", user.id)
-    .single();
-
-  if (!perfil || perfil.ativo === false) {
-    return NextResponse.json(
-      { error: "Perfil inválido" },
-      { status: 401 }
-    );
-  }
-
-  const podeAcessar =
-    perfil.role === "SUPER_ADMIN" ||
-    (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
-
-  if (!podeAcessar) {
-    return NextResponse.json(
-      { error: "Sem permissão" },
-      { status: 403 }
-    );
-  }
-
-  const { data: turmas = [] } = await supabase
+  const turmasQuery = supabase
     .from("turmas")
     .select("*")
-    .eq("escola_id", escolaId)
+    .eq("escola_id", ESCOLA_ID)
     .order("ano_serie", { ascending: true });
 
-  const { data: alunos = [] } = await supabase
+  const alunosQuery = supabase
     .from("alunos")
     .select("*")
-    .eq("escola_id", escolaId)
+    .eq("escola_id", ESCOLA_ID)
     .eq("ativo", true);
 
-  const { data: disciplinas = [] } = await supabase
-    .from("disciplinas")
-    .select("*")
-    .eq("escola_id", escolaId);
+  const [
+    { data: turmas = [] },
+    { data: alunos = [] },
+    { data: disciplinas = [] },
+    { data: matriz = [] },
+  ] = await Promise.all([
+    turmaId ? turmasQuery.eq("id", turmaId) : turmasQuery,
+    turmaId ? alunosQuery.eq("turma_id", turmaId) : alunosQuery,
+    supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID),
+    supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID),
+  ]);
 
-  const { data: matriz = [] } = await supabase
-    .from("matriz_disciplinas")
-    .select("*")
-    .eq("escola_id", escolaId);
-
-  const notas = await buscarTodasNotas(supabase, escolaId);
+  const notas = await buscarTodasNotas(supabase, ESCOLA_ID, bimestre);
 
   const heatmap = buildHeatmapPedagogico({
     alunos: alunos as Aluno[],
@@ -121,7 +82,5 @@ export async function GET(request: Request) {
     matriz: matriz as MatrizDisciplina[],
   });
 
-  return NextResponse.json({
-    data: heatmap,
-  });
+  return NextResponse.json({ data: heatmap });
 }
