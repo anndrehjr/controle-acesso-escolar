@@ -101,7 +101,11 @@ export default function GraficosVisaoGeral({
                 <XAxis
                   dataKey="turma"
                   stroke="#a1a1aa"
-                  tick={{ fontSize: 13, fill: "#d4d4d8", fontWeight: 700 }}
+                  tick={{ fontSize: 11, fill: "#d4d4d8", fontWeight: 700 }}
+                  angle={-25}
+                  textAnchor="end"
+                  height={60}
+                  interval={0}
                 />
 
                 <YAxis stroke="#a1a1aa" tick={{ fill: "#a1a1aa" }} />

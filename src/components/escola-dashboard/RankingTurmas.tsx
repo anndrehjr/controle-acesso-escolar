@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type RankingItem = {
   turma: {
     id: string;
@@ -78,14 +80,22 @@ export default function RankingTurmas({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-zinc-700 bg-black/20 px-6 py-4 text-center">
-                  <h2 className={`text-5xl font-black tracking-tight ${corMedia}`}>
-                    {item.media.toFixed(1)}
-                  </h2>
+                <div className="flex items-center gap-4">
+                  <div className="rounded-2xl border border-zinc-700 bg-black/20 px-6 py-4 text-center">
+                    <h2 className={`text-5xl font-black tracking-tight ${corMedia}`}>
+                      {item.media.toFixed(1)}
+                    </h2>
+                    <span className="text-sm font-semibold text-zinc-500">
+                      média
+                    </span>
+                  </div>
 
-                  <span className="text-sm font-semibold text-zinc-500">
-                    média
-                  </span>
+                  <Link
+                    href={`/dashboard?turma=${item.turma.id}&tab=comparativo`}
+                    className="shrink-0 rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-center text-sm font-bold text-zinc-300 transition hover:border-white/40 hover:bg-zinc-800 hover:text-white"
+                  >
+                    B1 × B2
+                  </Link>
                 </div>
               </div>
             </div>
