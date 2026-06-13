@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
+import { cache } from "../../../../lib/cache";
 
 import type {
   Aluno,
@@ -42,6 +43,7 @@ async function buscarTodasNotas(
 }
 
 export async function GET(request: Request) {
+  try {
   const supabase = await createClient();
 
   const { searchParams } = new URL(request.url);
@@ -103,32 +105,34 @@ export async function GET(request: Request) {
     );
   }
 
-  const { data: turmas = [] } = await supabase
-    .from("turmas")
-    .select("*")
-    .eq("escola_id", escolaId);
+  const [turmas, alunos, disciplinas] = await Promise.all([
+    cache.getOrSet(`turmas:${escolaId}`, async () => {
+      const { data } = await supabase.from("turmas").select("*").eq("escola_id", escolaId);
+      return (data ?? []) as Turma[];
+    }),
+    cache.getOrSet(`alunos:${escolaId}`, async () => {
+      const { data } = await supabase
+        .from("alunos")
+        .select("*")
+        .eq("escola_id", escolaId)
+        .eq("ativo", true);
+      return (data ?? []) as Aluno[];
+    }),
+    cache.getOrSet(`disciplinas:${escolaId}`, async () => {
+      const { data } = await supabase.from("disciplinas").select("*").eq("escola_id", escolaId);
+      return (data ?? []) as Disciplina[];
+    }),
+  ]);
 
-  const { data: alunos = [] } = await supabase
-    .from("alunos")
-    .select("*")
-    .eq("escola_id", escolaId)
-    .eq("ativo", true);
-
-  const { data: disciplinas = [] } = await supabase
-    .from("disciplinas")
-    .select("*")
-    .eq("escola_id", escolaId);
-
-  const notas = await buscarTodasNotas(
-    supabase,
-    escolaId
+  const notas = await cache.getOrSet(`notas:${escolaId}`, () =>
+    buscarTodasNotas(supabase, escolaId)
   );
 
   const dashboard = buildSchoolDashboard({
-    alunos: alunos as Aluno[],
-    notas: notas as Nota[],
-    turmas: turmas as Turma[],
-    disciplinas: disciplinas as Disciplina[],
+    alunos,
+    notas,
+    turmas,
+    disciplinas,
     bimestre: escola.bimestre_atual ?? 1,
     anoLetivo: escola.ano_letivo ?? 2026,
   });
@@ -140,4 +144,8 @@ export async function GET(request: Request) {
       turmaAlerta: dashboard.turmaAlerta,
     },
   });
+  } catch (err) {
+    console.error("[ranking]", err);
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+  }
 }

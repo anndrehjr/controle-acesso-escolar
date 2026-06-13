@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
+import { cache } from "../../../../lib/cache";
 import type { Aluno, Disciplina, Nota, Turma } from "../../../../lib/analytics/types";
 
 const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
@@ -37,6 +38,7 @@ async function buscarNotasBimestre(
 }
 
 export async function GET(request: Request) {
+  try {
   const { searchParams } = new URL(request.url);
   const turmaId = searchParams.get("turma");
 
@@ -46,35 +48,55 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  const [
-    { data: turmaData },
-    { data: escola },
-    { data: alunos = [] },
-    { data: disciplinas = [] },
-  ] = await Promise.all([
-    supabase.from("turmas").select("*").eq("id", turmaId).single(),
-    supabase.from("escolas").select("ano_letivo").eq("id", ESCOLA_ID).single(),
-    supabase.from("alunos").select("*").eq("turma_id", turmaId).eq("ativo", true),
-    supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID),
+  const [turmaData, alunos, disciplinas] = await Promise.all([
+    cache.getOrSet(`turma:${turmaId}`, async () => {
+      const { data } = await supabase.from("turmas").select("*").eq("id", turmaId).single();
+      return data as Turma | null;
+    }),
+    cache.getOrSet(`alunos:${ESCOLA_ID}:turma:${turmaId}`, async () => {
+      const { data } = await supabase
+        .from("alunos")
+        .select("*")
+        .eq("turma_id", turmaId)
+        .eq("ativo", true);
+      return (data ?? []) as Aluno[];
+    }),
+    cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
+      const { data } = await supabase
+        .from("disciplinas")
+        .select("*")
+        .eq("escola_id", ESCOLA_ID);
+      return (data ?? []) as Disciplina[];
+    }),
   ]);
 
   if (!turmaData) {
     return NextResponse.json({ error: "Turma não encontrada" }, { status: 404 });
   }
 
+  const { data: escola } = await supabase
+    .from("escolas")
+    .select("ano_letivo")
+    .eq("id", ESCOLA_ID)
+    .single();
+
   const anoLetivo = escola?.ano_letivo ?? new Date().getFullYear();
 
   const [notasB1, notasB2] = await Promise.all([
-    buscarNotasBimestre(supabase, ESCOLA_ID, 1, turmaId),
-    buscarNotasBimestre(supabase, ESCOLA_ID, 2, turmaId),
+    cache.getOrSet(`notas:${ESCOLA_ID}:bim:1:turma:${turmaId}`, () =>
+      buscarNotasBimestre(supabase, ESCOLA_ID, 1, turmaId)
+    ),
+    cache.getOrSet(`notas:${ESCOLA_ID}:bim:2:turma:${turmaId}`, () =>
+      buscarNotasBimestre(supabase, ESCOLA_ID, 2, turmaId)
+    ),
   ]);
 
   function buildSnapshot(notas: Nota[], bimestre: number) {
     const dashboard = buildSchoolDashboard({
-      alunos: alunos as Aluno[],
+      alunos,
       notas,
       turmas: [turmaData as Turma],
-      disciplinas: disciplinas as Disciplina[],
+      disciplinas,
       bimestre,
       anoLetivo,
     });
@@ -110,4 +132,8 @@ export async function GET(request: Request) {
     b1: buildSnapshot(notasB1, 1),
     b2: buildSnapshot(notasB2, 2),
   });
+  } catch (err) {
+    console.error("[comparativo]", err);
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+  }
 }

@@ -48,6 +48,7 @@ export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [turmaSelecionada, setTurmaSelecionada] = useState("");
   const [mostrarNomes, setMostrarNomes] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     async function carregarHeatmap() {
@@ -77,22 +78,48 @@ export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
     }
 
     carregarHeatmap();
-  }, [bimestre, turmaId]);
+  }, [bimestre, turmaId, refreshKey]);
 
   const turmaAtual = data.find((t) => t.turmaId === turmaSelecionada) ?? data[0];
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-8 text-zinc-400 shadow-2xl backdrop-blur">
-        Carregando heatmap pedagógico...
+      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl backdrop-blur md:p-8">
+        <div className="animate-pulse space-y-6">
+          <div className="space-y-3">
+            <div className="h-3 w-32 rounded-full bg-zinc-800" />
+            <div className="h-8 w-64 rounded-2xl bg-zinc-800" />
+            <div className="h-4 w-80 rounded-xl bg-zinc-800/60" />
+          </div>
+          <div className="h-10 w-48 rounded-2xl bg-zinc-800/60" />
+          <div className="overflow-hidden rounded-2xl border border-zinc-800">
+            <div className="h-10 border-b border-zinc-800 bg-zinc-900" />
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex h-12 gap-2 border-b border-zinc-800 px-3 items-center">
+                <div className="h-4 w-40 rounded bg-zinc-800" />
+                {[...Array(6)].map((_, j) => (
+                  <div key={j} className="flex-1">
+                    <div className="mx-auto h-7 w-full rounded-xl bg-zinc-800/60" />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (erro) {
     return (
-      <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 text-red-300 shadow-2xl backdrop-blur">
-        Erro ao carregar heatmap: {erro}
+      <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 shadow-2xl backdrop-blur">
+        <p className="text-red-300">Erro ao carregar heatmap: {erro}</p>
+        <button
+          onClick={() => setRefreshKey((k) => k + 1)}
+          className="mt-4 rounded-2xl border border-red-700 bg-red-900/40 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-900/60"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -187,7 +214,7 @@ export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
             {alunosOrdenados.map((aluno) => (
               <tr
                 key={aluno.alunoId}
-                onClick={() => router.push(`/dashboard/aluno/${aluno.alunoId}`)}
+                onClick={() => router.push(`/dashboard/aluno/${aluno.alunoId}?turmaId=${turmaSelecionada}`)}
                 className={`cursor-pointer ${
                   aluno.emAtencao
                     ? "bg-red-500/5 hover:bg-red-500/10"

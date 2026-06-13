@@ -1,4 +1,5 @@
 import { createClient } from "../../lib/supabase/server";
+import { cache } from "../../lib/cache";
 
 import KPICardsReal from "../../components/escola-dashboard/KPICardsReal";
 import ResumoPedagogico from "../../components/escola-dashboard/ResumoPedagogico";
@@ -61,11 +62,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const { bimestre: bimestreParam, turma: turmaParam, tab: tabParam } = await searchParams;
 
-  const { data: escola } = await supabase
-    .from("escolas")
-    .select("*")
-    .eq("id", ESCOLA_ID)
-    .single();
+  const escola = await cache.getOrSet(`escola:${ESCOLA_ID}`, async () => {
+    const { data } = await supabase.from("escolas").select("*").eq("id", ESCOLA_ID).single();
+    return data;
+  });
 
   if (!escola) {
     return (
@@ -84,11 +84,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const turmaId = turmaParam ?? null;
 
   // Busca todas as turmas sempre (para o seletor e ranking completo)
-  const { data: todasTurmas = [] } = await supabase
-    .from("turmas")
-    .select("*")
-    .eq("escola_id", ESCOLA_ID)
-    .order("ano_serie", { ascending: true });
+  const todasTurmas = await cache.getOrSet(`turmas:${ESCOLA_ID}`, async () => {
+    const { data } = await supabase
+      .from("turmas")
+      .select("*")
+      .eq("escola_id", ESCOLA_ID)
+      .order("ano_serie", { ascending: true });
+    return (data ?? []) as Turma[];
+  });
 
   // Alunos e notas: filtrados pela turma se selecionada
   const alunosQuery = supabase
@@ -101,12 +104,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     ? await alunosQuery.eq("turma_id", turmaId)
     : await alunosQuery;
 
-  const [
-    { data: disciplinas = [] },
-    { data: matriz = [] },
-  ] = await Promise.all([
-    supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID),
-    supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID),
+  const [disciplinas, matriz] = await Promise.all([
+    cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
+      const { data } = await supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID);
+      return (data ?? []) as Disciplina[];
+    }),
+    cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
+      const { data } = await supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID);
+      return data ?? [];
+    }),
   ]);
 
   const notas = await buscarNotas(supabase, ESCOLA_ID, bimestreAlvo, turmaId ?? undefined);
