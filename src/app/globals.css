@@ -1,5 +1,75 @@
 @import "tailwindcss";
 
+@keyframes nav-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* =============================================================
+   LIGHT THEME — overrides Tailwind v4's CSS custom properties
+   Dark theme is the default (unchanged visually)
+   ============================================================= */
+
+html[data-theme="light"] {
+  color-scheme: light;
+
+  /* Zinc scale inversion: dark backgrounds → light, light text → dark */
+  --color-zinc-950: #ffffff;
+  --color-zinc-900: #f4f6fa;
+  --color-zinc-800: #e5e7eb;
+  --color-zinc-700: #d1d5db;
+  --color-zinc-600: #9ca3af;
+  --color-zinc-500: #6b7280;
+  --color-zinc-400: #374151;
+  --color-zinc-300: #1f2937;
+  --color-zinc-200: #111827;
+  --color-zinc-100: #0f172a;
+  --color-zinc-50:  #030712;
+
+  /* White/Black: invert so text-white becomes dark and bg-white becomes dark (active buttons) */
+  --color-white: #111827;
+  --color-black: #f4f6fa;
+
+  /* Status text: darken light pastels (300/400) for readability on white backgrounds */
+  --color-red-200:    #991b1b;
+  --color-red-300:    #dc2626;
+  --color-red-400:    #b91c1c;
+  --color-red-500:    #991b1b;
+
+  --color-yellow-300: #b45309;
+  --color-yellow-400: #92400e;
+  --color-yellow-500: #78350f;
+
+  --color-green-100:  #064e3b;
+  --color-green-200:  #065f46;
+  --color-green-300:  #047857;
+  --color-green-400:  #065f46;
+  --color-green-500:  #04503c;
+  --color-green-600:  #022c22;
+
+  --color-blue-200:   #1e40af;
+  --color-blue-300:   #1d4ed8;
+  --color-blue-400:   #1e40af;
+  --color-blue-500:   #1e3a8a;
+
+  --color-indigo-200: #3730a3;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4f46e5;
+}
+
+/* Login page: remove dark gradient overlay and reset background */
+html[data-theme="light"] main.bg-black {
+  background: #f4f6fa;
+}
+html[data-theme="light"] main.bg-black > .absolute.inset-0 {
+  display: none;
+}
+
+/* Smooth theme transition on all interactive/visual elements */
+html {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

@@ -13,6 +13,7 @@ import {
   LabelList,
   Tooltip,
 } from "recharts";
+import { useCurrentTheme } from "../../hooks/useCurrentTheme";
 
 type DistribuicaoTurma = {
   turma: string;
@@ -41,10 +42,32 @@ const cores = {
   avancado: "#3b82f6",
 };
 
+const chartColorsByTheme = {
+  dark: {
+    grid: "#27272a",
+    axis: "#a1a1aa",
+    tick: "#d4d4d8",
+    tooltipBg: "#09090b",
+    tooltipBorder: "#3f3f46",
+    tooltipText: "#ffffff",
+  },
+  light: {
+    grid: "#e5e7eb",
+    axis: "#9ca3af",
+    tick: "#374151",
+    tooltipBg: "#ffffff",
+    tooltipBorder: "#e5e7eb",
+    tooltipText: "#111827",
+  },
+};
+
 export default function GraficosVisaoGeral({
   distribuicaoPorTurma,
   distribuicaoGeral,
 }: Props) {
+  const theme = useCurrentTheme();
+  const c = chartColorsByTheme[theme];
+
   const pizza = [
     {
       name: "Crítico",
@@ -96,25 +119,25 @@ export default function GraficosVisaoGeral({
           <div className="mt-8 h-[380px] md:h-[430px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={distribuicaoPorTurma} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                <CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
 
                 <XAxis
                   dataKey="turma"
-                  stroke="#a1a1aa"
-                  tick={{ fontSize: 11, fill: "#d4d4d8", fontWeight: 700 }}
+                  stroke={c.axis}
+                  tick={{ fontSize: 11, fill: c.tick, fontWeight: 700 }}
                   angle={-25}
                   textAnchor="end"
                   height={60}
                   interval={0}
                 />
 
-                <YAxis stroke="#a1a1aa" tick={{ fill: "#a1a1aa" }} />
+                <YAxis stroke={c.axis} tick={{ fill: c.axis }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#09090b",
-                    border: "1px solid #3f3f46",
+                    backgroundColor: c.tooltipBg,
+                    border: `1px solid ${c.tooltipBorder}`,
                     borderRadius: "16px",
-                    color: "#ffffff",
+                    color: c.tooltipText,
                   }}
                 />
 
@@ -163,10 +186,10 @@ export default function GraficosVisaoGeral({
               <PieChart>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#09090b",
-                    border: "1px solid #3f3f46",
+                    backgroundColor: c.tooltipBg,
+                    border: `1px solid ${c.tooltipBorder}`,
                     borderRadius: "16px",
-                    color: "#ffffff",
+                    color: c.tooltipText,
                   }}
                 />
                 <Pie

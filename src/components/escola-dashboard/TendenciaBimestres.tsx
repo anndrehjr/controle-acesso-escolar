@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ArrowUp, ArrowDown } from "lucide-react";
+import { useCurrentTheme } from "../../hooks/useCurrentTheme";
 
 type PontoTendencia = {
   bimestre: number;
@@ -87,6 +88,11 @@ export default function TendenciaBimestres({ turmaId }: Props) {
   const [data, setData] = useState<TendenciaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const theme = useCurrentTheme();
+  const chartC = theme === "light"
+    ? { grid: "#e5e7eb", tick: "#6b7280", tickMuted: "#9ca3af", line: "#111827" }
+    : { grid: "#27272a", tick: "#71717a", tickMuted: "#52525b", line: "#ffffff" };
 
   useEffect(() => {
     async function carregar() {
@@ -106,20 +112,38 @@ export default function TendenciaBimestres({ turmaId }: Props) {
       }
     }
     carregar();
-  }, [turmaId]);
+  }, [turmaId, refreshKey]);
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-8 text-zinc-400 shadow-2xl backdrop-blur">
-        Carregando tendência dos bimestres...
+      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl backdrop-blur md:p-8">
+        <div className="animate-pulse space-y-6">
+          <div className="space-y-3">
+            <div className="h-3 w-28 rounded-full bg-zinc-800" />
+            <div className="h-8 w-72 rounded-2xl bg-zinc-800" />
+            <div className="h-4 w-80 rounded-xl bg-zinc-800/60" />
+          </div>
+          <div className="h-64 rounded-2xl bg-zinc-800/40" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl bg-zinc-800/40" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (erro) {
     return (
-      <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 text-red-300 shadow-2xl backdrop-blur">
-        Erro: {erro}
+      <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 shadow-2xl backdrop-blur">
+        <p className="text-red-300">Erro ao carregar tendência: {erro}</p>
+        <button
+          onClick={() => setRefreshKey((k) => k + 1)}
+          className="mt-4 rounded-2xl border border-red-700 bg-red-900/40 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-900/60"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -202,13 +226,13 @@ export default function TendenciaBimestres({ turmaId }: Props) {
             >
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#27272a"
+                stroke={chartC.grid}
                 vertical={false}
               />
 
               <XAxis
                 dataKey="label"
-                tick={{ fill: "#71717a", fontSize: 13, fontWeight: 700 }}
+                tick={{ fill: chartC.tick, fontSize: 13, fontWeight: 700 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -216,7 +240,7 @@ export default function TendenciaBimestres({ turmaId }: Props) {
               <YAxis
                 domain={[0, 10]}
                 ticks={[0, 2, 4, 5, 6, 7, 8, 10]}
-                tick={{ fill: "#52525b", fontSize: 11 }}
+                tick={{ fill: chartC.tickMuted, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -264,7 +288,7 @@ export default function TendenciaBimestres({ turmaId }: Props) {
               <Line
                 type="monotone"
                 dataKey="media"
-                stroke="#ffffff"
+                stroke={chartC.line}
                 strokeWidth={3}
                 dot={(props) => (
                   <DotCustom

@@ -134,6 +134,7 @@ export default function ComparativoBimestres({ turmaId }: Props) {
   const [data, setData] = useState<ComparativoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     async function carregar() {
@@ -151,20 +152,41 @@ export default function ComparativoBimestres({ turmaId }: Props) {
       }
     }
     carregar();
-  }, [turmaId]);
+  }, [turmaId, refreshKey]);
 
   if (loading) {
     return (
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-8 text-zinc-400 shadow-2xl backdrop-blur">
-        Carregando comparativo...
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl backdrop-blur md:p-8 animate-pulse">
+          <div className="space-y-3">
+            <div className="h-3 w-36 rounded-full bg-zinc-800" />
+            <div className="h-8 w-80 rounded-2xl bg-zinc-800" />
+            <div className="h-4 w-72 rounded-xl bg-zinc-800/60" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 animate-pulse">
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={i}
+              className="h-40 rounded-3xl border border-zinc-800 bg-zinc-950/80 shadow-2xl"
+            />
+          ))}
+        </div>
+        <div className="h-64 animate-pulse rounded-3xl border border-zinc-800 bg-zinc-950/80 shadow-2xl" />
       </div>
     );
   }
 
   if (erro) {
     return (
-      <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 text-red-300 shadow-2xl backdrop-blur">
-        Erro: {erro}
+      <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 shadow-2xl backdrop-blur">
+        <p className="text-red-300">Erro ao carregar comparativo: {erro}</p>
+        <button
+          onClick={() => setRefreshKey((k) => k + 1)}
+          className="mt-4 rounded-2xl border border-red-700 bg-red-900/40 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-900/60"
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }

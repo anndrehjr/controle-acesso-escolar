@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "../../../../lib/supabase/server";
-
 import { buildDistribuicaoPedagogica } from "../../../../lib/analytics/buildDistribuicaoPedagogica";
+import { cache } from "../../../../lib/cache";
 
 import type {
   Aluno,
@@ -15,14 +15,11 @@ async function buscarTodasNotas(
   escolaId: string
 ) {
   const tamanhoPagina = 1000;
-
   let pagina = 0;
-
   let todasNotas: Nota[] = [];
 
   while (true) {
     const inicio = pagina * tamanhoPagina;
-
     const fim = inicio + tamanhoPagina - 1;
 
     const { data, error } = await supabase
@@ -35,10 +32,7 @@ async function buscarTodasNotas(
 
     if (!data || data.length === 0) break;
 
-    todasNotas = [
-      ...todasNotas,
-      ...(data as Nota[]),
-    ];
+    todasNotas = [...todasNotas, ...(data as Nota[])];
 
     if (data.length < tamanhoPagina) break;
 
@@ -49,20 +43,16 @@ async function buscarTodasNotas(
 }
 
 export async function GET(request: Request) {
+  try {
   const supabase = await createClient();
 
   const { searchParams } = new URL(request.url);
-
   const escolaId = searchParams.get("escolaId");
 
   if (!escolaId) {
     return NextResponse.json(
-      {
-        error: "escolaId obrigatório",
-      },
-      {
-        status: 400,
-      }
+      { error: "escolaId obrigatório" },
+      { status: 400 }
     );
   }
 
@@ -72,12 +62,8 @@ export async function GET(request: Request) {
 
   if (!user) {
     return NextResponse.json(
-      {
-        error: "Não autenticado",
-      },
-      {
-        status: 401,
-      }
+      { error: "Não autenticado" },
+      { status: 401 }
     );
   }
 
@@ -89,56 +75,46 @@ export async function GET(request: Request) {
 
   if (!perfil || perfil.ativo === false) {
     return NextResponse.json(
-      {
-        error: "Perfil inválido",
-      },
-      {
-        status: 401,
-      }
+      { error: "Perfil inválido" },
+      { status: 401 }
     );
   }
 
   const podeAcessar =
     perfil.role === "SUPER_ADMIN" ||
-    (
-      perfil.role === "ADMIN_ESCOLA" &&
-      perfil.escola_id === escolaId
-    );
+    (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
 
   if (!podeAcessar) {
     return NextResponse.json(
-      {
-        error: "Sem permissão",
-      },
-      {
-        status: 403,
-      }
+      { error: "Sem permissão" },
+      { status: 403 }
     );
   }
 
-  const { data: turmas = [] } = await supabase
-    .from("turmas")
-    .select("*")
-    .eq("escola_id", escolaId);
+  const [turmas, alunos] = await Promise.all([
+    cache.getOrSet(`turmas:${escolaId}`, async () => {
+      const { data } = await supabase.from("turmas").select("*").eq("escola_id", escolaId);
+      return (data ?? []) as Turma[];
+    }),
+    cache.getOrSet(`alunos:${escolaId}`, async () => {
+      const { data } = await supabase
+        .from("alunos")
+        .select("*")
+        .eq("escola_id", escolaId)
+        .eq("ativo", true);
+      return (data ?? []) as Aluno[];
+    }),
+  ]);
 
-  const { data: alunos = [] } = await supabase
-    .from("alunos")
-    .select("*")
-    .eq("escola_id", escolaId)
-    .eq("ativo", true);
-
-  const notas = await buscarTodasNotas(
-    supabase,
-    escolaId
+  const notas = await cache.getOrSet(`notas:${escolaId}`, () =>
+    buscarTodasNotas(supabase, escolaId)
   );
 
-  const distribuicao = buildDistribuicaoPedagogica({
-    alunos: alunos as Aluno[],
-    notas: notas as Nota[],
-    turmas: turmas as Turma[],
-  });
+  const distribuicao = buildDistribuicaoPedagogica({ alunos, notas, turmas });
 
-  return NextResponse.json({
-    data: distribuicao,
-  });
+  return NextResponse.json({ data: distribuicao });
+  } catch (err) {
+    console.error("[distribuicao]", err);
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+  }
 }

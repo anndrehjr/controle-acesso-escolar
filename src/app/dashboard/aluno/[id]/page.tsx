@@ -1,13 +1,14 @@
 import { createClient } from "../../../../lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
+import { cache } from "../../../../lib/cache";
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../../../lib/analytics/types";
 
 const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ bimestre?: string }>;
+  searchParams: Promise<{ bimestre?: string; turmaId?: string }>;
 };
 
 function getNivel(media: number) {
@@ -41,19 +42,26 @@ async function buscarNotasBimestre(
 
 export default async function AlunoPage({ params, searchParams }: PageProps) {
   const { id } = await params;
-  const { bimestre: bimestreParam } = await searchParams;
+  const { bimestre: bimestreParam, turmaId: turmaIdParam } = await searchParams;
   const supabase = await createClient();
 
-  const [
-    { data: alunoRaw },
-    { data: escola },
-    { data: disciplinas = [] },
-    { data: matriz = [] },
-  ] = await Promise.all([
-    supabase.from("alunos").select("*").eq("id", id).single(),
-    supabase.from("escolas").select("*").eq("id", ESCOLA_ID).single(),
-    supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID),
-    supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID),
+  const [alunoRaw, escola, disciplinas, matriz] = await Promise.all([
+    cache.getOrSet(`aluno:${id}`, async () => {
+      const { data } = await supabase.from("alunos").select("*").eq("id", id).single();
+      return data;
+    }),
+    cache.getOrSet(`escola:${ESCOLA_ID}`, async () => {
+      const { data } = await supabase.from("escolas").select("*").eq("id", ESCOLA_ID).single();
+      return data;
+    }),
+    cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
+      const { data } = await supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID);
+      return (data ?? []) as Disciplina[];
+    }),
+    cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
+      const { data } = await supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID);
+      return (data ?? []) as MatrizDisciplina[];
+    }),
   ]);
 
   if (!alunoRaw) {
@@ -71,13 +79,11 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
   const bimestreAtual = escola?.bimestre_atual ?? 1;
   const bimestres = [1, 2, 3, 4];
 
-  const { data: turmaRaw } = await supabase
-    .from("turmas")
-    .select("*")
-    .eq("id", aluno.turma_id)
-    .single();
+  const turma = await cache.getOrSet(`turma:${aluno.turma_id}`, async () => {
+    const { data } = await supabase.from("turmas").select("*").eq("id", aluno.turma_id).single();
+    return data as Turma | null;
+  });
 
-  const turma = turmaRaw as Turma | null;
   const grupo = turma?.grupo_pedagogico ?? "";
 
   const matrizDaTurma = (matriz as MatrizDisciplina[])
@@ -101,7 +107,9 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
   const notasPorBimestre = await Promise.all(
     bimestres.map(async (b) => ({
       bimestre: b,
-      notas: await buscarNotasBimestre(supabase, aluno.id, b),
+      notas: await cache.getOrSet(`notas:aluno:${aluno.id}:bim:${b}`, () =>
+        buscarNotasBimestre(supabase, aluno.id, b)
+      ),
     }))
   );
 
@@ -141,7 +149,7 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
         {/* Header */}
         <div>
           <Link
-            href="/dashboard"
+            href={`/dashboard?tab=heatmap${turmaIdParam ? `&turma=${turmaIdParam}` : ""}`}
             className="mb-6 inline-flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:border-zinc-600 hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
