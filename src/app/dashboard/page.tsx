@@ -12,11 +12,13 @@ import GraficosVisaoGeral from "../../components/escola-dashboard/GraficosVisaoG
 import HeatmapPedagogico from "../../components/escola-dashboard/HeatmapPedagogico";
 import ComparativoBimestres from "../../components/escola-dashboard/ComparativoBimestres";
 import TendenciaBimestres from "../../components/escola-dashboard/TendenciaBimestres";
+import AlunosRisco from "../../components/escola-dashboard/AlunosRisco";
 
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
 import { buildDistribuicaoPedagogica } from "../../lib/analytics/buildDistribuicaoPedagogica";
+import { buildAlunosRisco } from "../../lib/analytics/buildAlunosRisco";
 
-import type { Aluno, Disciplina, Nota, Turma } from "../../lib/analytics/types";
+import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
 const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
@@ -137,6 +139,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     turmas: turmasParaAnalise,
   });
 
+  const risco = buildAlunosRisco({
+    alunos: alunos as Aluno[],
+    notas: notas as Nota[],
+    turmas: turmasParaAnalise,
+    disciplinas: disciplinas as Disciplina[],
+    matriz: matriz as MatrizDisciplina[],
+  });
+
   const semDados = notas.length === 0;
 
   return (
@@ -242,6 +252,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           />
         }
         alertas={
+          <div className="space-y-6">
           <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
             <div className="relative z-10 mb-6 flex items-center justify-between gap-4">
@@ -307,6 +318,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 </p>
               )}
             </div>
+          </div>
+          <AlunosRisco
+            alunosRisco={risco.alunosRisco}
+            bimestre={bimestreAlvo}
+            turmaNome={
+              turmaId
+                ? ((todasTurmas as Turma[]).find((t) => t.id === turmaId)?.nome ?? null)
+                : null
+            }
+          />
           </div>
         }
         heatmap={
