@@ -14,7 +14,7 @@ import GraficosVisaoGeral from "../../components/escola-dashboard/GraficosVisaoG
 import HeatmapPedagogico from "../../components/escola-dashboard/HeatmapPedagogico";
 import ComparativoBimestres from "../../components/escola-dashboard/ComparativoBimestres";
 import TendenciaBimestres from "../../components/escola-dashboard/TendenciaBimestres";
-import AlunosRisco from "../../components/escola-dashboard/AlunosRisco";
+import PainelAlertas from "../../components/escola-dashboard/PainelAlertas";
 
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
 import { buildDistribuicaoPedagogica } from "../../lib/analytics/buildDistribuicaoPedagogica";
@@ -127,6 +127,51 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const semDados = notas.length === 0;
 
+  // Unified alert list: críticos (media < 5) + atenção (2+ disciplines at risk, media >= 5)
+  const criticosIds = new Set(dashboard.alunosCriticos.map(item => item.aluno.id));
+  const riscoMap = new Map(risco.alunosRisco.map(a => [a.alunoId, a]));
+
+  const alunosAlerta = [
+    ...dashboard.alunosCriticos.map(item => {
+      const riscoData = riscoMap.get(item.aluno.id);
+      const turma = (todasTurmas as Turma[]).find(t => t.id === item.aluno.turma_id);
+      return {
+        id: item.aluno.id,
+        nome: item.aluno.nome,
+        numeroChamada: item.aluno.numero_chamada,
+        turmaId: item.aluno.turma_id,
+        turmaNome: turma?.nome ?? "Turma",
+        mediaGeral: item.media,
+        status: "critico" as const,
+        totalDisciplinasRisco: riscoData?.totalDisciplinasRisco ?? 0,
+        disciplinas: (riscoData?.disciplinasRisco ?? []).map(d => ({
+          disciplinaId: d.disciplinaId,
+          nome: d.disciplinaNome,
+          codigo: d.codigo,
+          nota: d.nota,
+        })),
+      };
+    }),
+    ...risco.alunosRisco
+      .filter(r => !criticosIds.has(r.alunoId))
+      .map(r => ({
+        id: r.alunoId,
+        nome: r.nome,
+        numeroChamada: r.numeroChamada,
+        turmaId: r.turmaId,
+        turmaNome: r.turmaNome,
+        mediaGeral: r.mediaGeral,
+        status: "atencao" as const,
+        totalDisciplinasRisco: r.totalDisciplinasRisco,
+        disciplinas: r.disciplinasRisco.map(d => ({
+          disciplinaId: d.disciplinaId,
+          nome: d.disciplinaNome,
+          codigo: d.codigo,
+          nota: d.nota,
+        })),
+      })),
+  ];
+
   return (
     <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
       <HeaderEscola
@@ -230,83 +275,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           />
         }
         alertas={
-          <div className="space-y-6">
-          <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-            <div className="relative z-10 mb-6 flex items-center justify-between gap-4">
-              <div>
-                <div className="mb-3 inline-flex rounded-full border border-red-900/60 bg-red-950/40 px-3 py-1 text-xs font-medium text-red-400">
-                  Situação crítica
-                </div>
-                <h2 className="text-2xl font-black tracking-tight md:text-3xl">
-                  Alertas Pedagógicos
-                </h2>
-                <p className="mt-2 text-sm text-zinc-400">
-                  Média abaixo de 5,0 — {bimestreAlvo}º bimestre
-                  {turmaId
-                    ? ` · ${(todasTurmas as Turma[]).find((t) => t.id === turmaId)?.nome ?? "Turma"}`
-                    : " · Todas as turmas"}
-                  . Ordenados do mais crítico ao menos crítico.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-red-900/40 bg-red-950/30 px-5 py-4 text-center">
-                <span className="text-4xl font-black text-red-300">
-                  {dashboard.alunosCriticos.length}
-                </span>
-                <p className="text-xs font-semibold text-red-500">críticos</p>
-              </div>
-            </div>
-
-            <div className="relative z-10 space-y-3">
-              {dashboard.alunosCriticos
-                .slice()
-                .sort((a, b) => (a.media ?? 10) - (b.media ?? 10))
-                .map((item, idx) => {
-                  const turma = (todasTurmas as Turma[]).find(
-                    (t) => t.id === item.aluno.turma_id
-                  );
-                  return (
-                    <div
-                      key={item.aluno.id}
-                      className="flex items-center gap-4 rounded-2xl border border-red-900/30 bg-red-950/20 px-4 py-3 transition hover:border-red-700/50 hover:bg-red-950/30"
-                    >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-red-900/40 bg-red-950/60 text-sm font-black text-red-400">
-                        {idx + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-bold text-red-200">{item.aluno.nome}</p>
-                        <p className="text-xs text-zinc-500">
-                          {turma?.nome ?? "Turma não identificada"}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xl font-black text-red-400">
-                          {item.media !== null ? item.media.toFixed(1) : "-"}
-                        </span>
-                        <p className="text-xs text-zinc-600">média</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              {dashboard.alunosCriticos.length === 0 && (
-                <p className="text-zinc-400">
-                  {semDados
-                    ? "Sem dados para este bimestre."
-                    : "Nenhum aluno em situação crítica."}
-                </p>
-              )}
-            </div>
-          </div>
-          <AlunosRisco
-            alunosRisco={risco.alunosRisco}
+          <PainelAlertas
+            alunosAlerta={alunosAlerta}
             bimestre={bimestreAlvo}
-            turmaNome={
-              turmaId
-                ? ((todasTurmas as Turma[]).find((t) => t.id === turmaId)?.nome ?? null)
-                : null
-            }
+            turmas={(todasTurmas as Turma[]).map(t => ({ id: t.id, nome: t.nome }))}
           />
-          </div>
         }
         heatmap={
           <HeatmapPedagogico
