@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTokenFromRequest, verifyToken } from "../../../../lib/auth";
+import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { cache } from "../../../../lib/cache";
@@ -16,8 +16,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "turma obrigatória" }, { status: 400 });
     }
 
-    const token = getTokenFromRequest(request);
-    if (!token || !(await verifyToken(token))) {
+    if (!(await checkApiAuth(request))) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

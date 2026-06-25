@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTokenFromRequest, verifyToken } from "../../../../lib/auth";
+import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildDistribuicaoPedagogica } from "../../../../lib/analytics/buildDistribuicaoPedagogica";
 import { cache } from "../../../../lib/cache";
@@ -19,18 +19,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "escolaId obrigatório" }, { status: 400 });
     }
 
-    const token = getTokenFromRequest(request);
-    if (!token) {
-      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
-    }
-
-    const perfil = await verifyToken(token);
+    const perfil = await checkApiAuth(request);
     if (!perfil) {
-      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
-    }
-
-    if (!perfil.id) {
-      return NextResponse.json({ error: "Perfil inválido" }, { status: 401 });
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     const podeAcessar =

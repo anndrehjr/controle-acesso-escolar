@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTokenFromRequest, verifyToken } from "../../../../lib/auth";
+import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { cache } from "../../../../lib/cache";
@@ -12,8 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const turmaId = searchParams.get("turma") ?? undefined;
 
-    const token = getTokenFromRequest(request);
-    if (!token || !(await verifyToken(token))) {
+    if (!(await checkApiAuth(request))) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTokenFromRequest, verifyToken } from "../../../../lib/auth";
+import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildHeatmapPedagogico } from "../../../../lib/analytics/buildHeatmapPedagogico";
 import { cache } from "../../../../lib/cache";
@@ -16,8 +16,7 @@ const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
 export async function GET(request: Request) {
   try {
-    const token = getTokenFromRequest(request);
-    if (!token || !(await verifyToken(token))) {
+    if (!(await checkApiAuth(request))) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

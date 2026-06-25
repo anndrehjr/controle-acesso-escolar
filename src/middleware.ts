@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server'
 import { verifyToken } from './lib/auth'
 
 export async function middleware(request: NextRequest) {
+  if (process.env.AUTH_ENABLED !== 'true') return NextResponse.next()
+
   const token = request.cookies.get('auth_token')?.value
   const isLoginPage = request.nextUrl.pathname === '/login'
   const isApiAuth = request.nextUrl.pathname.startsWith('/api/auth')
