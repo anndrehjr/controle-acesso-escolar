@@ -242,7 +242,14 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 bimestre={bimestreAlvo}
                 anoLetivo={(escola.ano_letivo as number | undefined) ?? 2026}
               />
-              <ListaTurmas turmas={turmasParaAnalise} />
+              <ListaTurmas
+                turmas={dashboard.rankingTurmas.map((r) => ({
+                  id: r.turma.id,
+                  nome: r.turma.nome,
+                  total_ativos: r.turma.total_ativos ?? 0,
+                  media: r.media,
+                }))}
+              />
             </section>
           </div>
         }
