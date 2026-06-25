@@ -18,7 +18,7 @@ import PainelAlertas from "../../components/escola-dashboard/PainelAlertas";
 
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
 import { buildDistribuicaoPedagogica } from "../../lib/analytics/buildDistribuicaoPedagogica";
-import { buildAlunosRisco } from "../../lib/analytics/buildAlunosRisco";
+import { buildAlertas } from "../../lib/analytics/buildAlertas";
 
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
@@ -117,7 +117,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     turmas: turmasParaAnalise,
   });
 
-  const risco = buildAlunosRisco({
+  // Críticos = 4+ disciplinas < 5,0 · Atenção = 2 ou 3 disciplinas < 5,0
+  const alertas = buildAlertas({
     alunos: alunos as Aluno[],
     notas: notas as Nota[],
     turmas: turmasParaAnalise,
@@ -125,57 +126,42 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     matriz: matriz as MatrizDisciplina[],
   });
 
-  const semDados = notas.length === 0;
-
-  // Críticos = média < 5 · Atenção = faixa básico (5,0–6,9)
-  const criticosIds = new Set(dashboard.alunosCriticos.map(item => item.aluno.id));
-  const riscoMap = new Map(risco.alunosRisco.map(a => [a.alunoId, a]));
-  const alunosBasico = dashboard.mediasPorAluno.filter(
-    item => item.nivel === "basico" && item.media !== null
-  );
-
   const alunosAlerta = [
-    ...dashboard.alunosCriticos.map(item => {
-      const riscoData = riscoMap.get(item.aluno.id);
-      const turma = (todasTurmas as Turma[]).find(t => t.id === item.aluno.turma_id);
-      return {
-        id: item.aluno.id,
-        nome: item.aluno.nome,
-        numeroChamada: item.aluno.numero_chamada,
-        turmaId: item.aluno.turma_id,
-        turmaNome: turma?.nome ?? "Turma",
-        mediaGeral: item.media,
-        status: "critico" as const,
-        totalDisciplinasRisco: riscoData?.totalDisciplinasRisco ?? 0,
-        disciplinas: (riscoData?.disciplinasRisco ?? []).map(d => ({
-          disciplinaId: d.disciplinaId,
-          nome: d.disciplinaNome,
-          codigo: d.codigo,
-          nota: d.nota,
-        })),
-      };
-    }),
-    ...alunosBasico.map(item => {
-      const riscoData = riscoMap.get(item.aluno.id);
-      const turma = (todasTurmas as Turma[]).find(t => t.id === item.aluno.turma_id);
-      return {
-        id: item.aluno.id,
-        nome: item.aluno.nome,
-        numeroChamada: item.aluno.numero_chamada,
-        turmaId: item.aluno.turma_id,
-        turmaNome: turma?.nome ?? "Turma",
-        mediaGeral: item.media,
-        status: "atencao" as const,
-        totalDisciplinasRisco: riscoData?.totalDisciplinasRisco ?? 0,
-        disciplinas: (riscoData?.disciplinasRisco ?? []).map(d => ({
-          disciplinaId: d.disciplinaId,
-          nome: d.disciplinaNome,
-          codigo: d.codigo,
-          nota: d.nota,
-        })),
-      };
-    }),
+    ...alertas.criticos.map(item => ({
+      id: item.alunoId,
+      nome: item.nome,
+      numeroChamada: item.numeroChamada,
+      turmaId: item.turmaId,
+      turmaNome: item.turmaNome,
+      mediaGeral: item.mediaGeral,
+      status: "critico" as const,
+      totalDisciplinasRisco: item.totalDisciplinasAbaixo,
+      disciplinas: item.disciplinasAbaixo.map(d => ({
+        disciplinaId: d.disciplinaId,
+        nome: d.disciplinaNome,
+        codigo: d.codigo,
+        nota: d.nota,
+      })),
+    })),
+    ...alertas.atencao.map(item => ({
+      id: item.alunoId,
+      nome: item.nome,
+      numeroChamada: item.numeroChamada,
+      turmaId: item.turmaId,
+      turmaNome: item.turmaNome,
+      mediaGeral: item.mediaGeral,
+      status: "atencao" as const,
+      totalDisciplinasRisco: item.totalDisciplinasAbaixo,
+      disciplinas: item.disciplinasAbaixo.map(d => ({
+        disciplinaId: d.disciplinaId,
+        nome: d.disciplinaNome,
+        codigo: d.codigo,
+        nota: d.nota,
+      })),
+    })),
   ];
+
+  const semDados = notas.length === 0;
 
   return (
     <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
@@ -211,8 +197,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               totalAlunos={dashboard.alunosAtivos.length}
               totalTurmas={turmasParaAnalise.length}
               mediaGeral={dashboard.mediaGeral}
-              alunosCriticos={dashboard.alunosCriticos.length}
-              alunosAbaixoBasico={dashboard.alunosCriticos.length}
+              alunosCriticos={alertas.criticos.length}
+              alunosAbaixoBasico={alertas.criticos.length}
               percentualAdequado={dashboard.percentualAdequado}
               totalAdequadosOuAvancados={dashboard.alunosAdequadosOuAvancados.length}
               melhorTurma={dashboard.melhorTurma?.turma.nome ?? "-"}
@@ -221,7 +207,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               turmaAlertaMedia={dashboard.turmaAlerta?.media ?? 0}
               disciplinaCritica={dashboard.disciplinaMaisCritica?.disciplina.nome ?? "-"}
               disciplinaCriticaPercentual={dashboard.disciplinaMaisCritica?.percentual ?? 0}
-              alunosAtencao={alunosBasico.length}
+              alunosAtencao={alertas.atencao.length}
               turmaFiltrada={!!turmaId}
               melhorAluno={
                 dashboard.melhorAlunoDaTurma
@@ -250,7 +236,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResumoPedagogico
-                alunosAtencao={alunosBasico.length}
+                alunosAtencao={alertas.atencao.length}
                 alunosTransferidos={dashboard.alunosTransferidos.length}
                 totalNotas={dashboard.notasValidas.length}
                 bimestre={bimestreAlvo}
@@ -264,7 +250,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <RankingTurmas ranking={dashboard.rankingTurmas} />
             <ResumoPedagogico
-              alunosAtencao={alunosBasico.length}
+              alunosAtencao={alertas.atencao.length}
               alunosTransferidos={dashboard.alunosTransferidos.length}
               totalNotas={dashboard.notasValidas.length}
               bimestre={bimestreAlvo}

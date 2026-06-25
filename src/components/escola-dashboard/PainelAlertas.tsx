@@ -105,7 +105,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               Painel de Alertas
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              {bimestre}º bimestre · Alunos que necessitam de intervenção
+              {bimestre}º bimestre · 🔴 4+ disciplinas &lt; 5,0 · 🟡 2–3 disciplinas &lt; 5,0
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
                 <span className="text-xs font-bold uppercase tracking-widest text-red-500">Crítico</span>
               </div>
               <p className="text-5xl font-black text-red-300">{totalCriticos}</p>
-              <p className="mt-1.5 text-xs text-zinc-400">alunos com média &lt; 5,0</p>
+              <p className="mt-1.5 text-xs text-zinc-400">4 ou mais disciplinas abaixo de 5,0</p>
               <p className="mt-0.5 text-xs text-zinc-600">Clique para filtrar</p>
             </div>
             {filtro === "critico" && (
@@ -150,7 +150,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
                 <span className="text-xs font-bold uppercase tracking-widest text-amber-500">Atenção</span>
               </div>
               <p className="text-5xl font-black text-amber-300">{totalAtencao}</p>
-              <p className="mt-1.5 text-xs text-zinc-400">alunos com média 5,0 – 6,9</p>
+              <p className="mt-1.5 text-xs text-zinc-400">2 ou 3 disciplinas abaixo de 5,0</p>
               <p className="mt-0.5 text-xs text-zinc-600">Clique para filtrar</p>
             </div>
             {filtro === "atencao" && (
