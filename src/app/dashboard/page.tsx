@@ -127,9 +127,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const semDados = notas.length === 0;
 
-  // Unified alert list: críticos (media < 5) + atenção (2+ disciplines at risk, media >= 5)
+  // Críticos = média < 5 · Atenção = faixa básico (5,0–6,9)
   const criticosIds = new Set(dashboard.alunosCriticos.map(item => item.aluno.id));
   const riscoMap = new Map(risco.alunosRisco.map(a => [a.alunoId, a]));
+  const alunosBasico = dashboard.mediasPorAluno.filter(
+    item => item.nivel === "basico" && item.media !== null
+  );
 
   const alunosAlerta = [
     ...dashboard.alunosCriticos.map(item => {
@@ -152,24 +155,26 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         })),
       };
     }),
-    ...risco.alunosRisco
-      .filter(r => !criticosIds.has(r.alunoId))
-      .map(r => ({
-        id: r.alunoId,
-        nome: r.nome,
-        numeroChamada: r.numeroChamada,
-        turmaId: r.turmaId,
-        turmaNome: r.turmaNome,
-        mediaGeral: r.mediaGeral,
+    ...alunosBasico.map(item => {
+      const riscoData = riscoMap.get(item.aluno.id);
+      const turma = (todasTurmas as Turma[]).find(t => t.id === item.aluno.turma_id);
+      return {
+        id: item.aluno.id,
+        nome: item.aluno.nome,
+        numeroChamada: item.aluno.numero_chamada,
+        turmaId: item.aluno.turma_id,
+        turmaNome: turma?.nome ?? "Turma",
+        mediaGeral: item.media,
         status: "atencao" as const,
-        totalDisciplinasRisco: r.totalDisciplinasRisco,
-        disciplinas: r.disciplinasRisco.map(d => ({
+        totalDisciplinasRisco: riscoData?.totalDisciplinasRisco ?? 0,
+        disciplinas: (riscoData?.disciplinasRisco ?? []).map(d => ({
           disciplinaId: d.disciplinaId,
           nome: d.disciplinaNome,
           codigo: d.codigo,
           nota: d.nota,
         })),
-      })),
+      };
+    }),
   ];
 
   return (
