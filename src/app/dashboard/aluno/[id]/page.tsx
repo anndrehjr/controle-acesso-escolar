@@ -1,4 +1,6 @@
-import { createClient } from "../../../../lib/supabase/server";
+import { redirect } from "next/navigation";
+import { requireAuth } from "../../../../lib/requireAuth";
+import db from "../../../../lib/db";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { cache } from "../../../../lib/cache";
@@ -26,41 +28,37 @@ function getClasseNota(nota: number | null) {
   return "bg-blue-500/15 text-blue-300 ring-blue-500/30";
 }
 
-async function buscarNotasBimestre(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  alunoId: string,
-  bimestre: number
-): Promise<Nota[]> {
-  const { data } = await supabase
-    .from("notas")
-    .select("*")
-    .eq("escola_id", ESCOLA_ID)
-    .eq("aluno_id", alunoId)
-    .eq("bimestre", bimestre);
-  return (data ?? []) as Nota[];
+async function buscarNotasBimestre(alunoId: string, bimestre: number): Promise<Nota[]> {
+  const rows = await db`
+    SELECT * FROM notas
+    WHERE escola_id = ${ESCOLA_ID} AND aluno_id = ${alunoId} AND bimestre = ${bimestre}
+  `;
+  return rows as unknown as Nota[];
 }
 
 export default async function AlunoPage({ params, searchParams }: PageProps) {
+  const usuario = await requireAuth();
+  if (!usuario) redirect("/login");
+
   const { id } = await params;
-  const { bimestre: bimestreParam, turmaId: turmaIdParam } = await searchParams;
-  const supabase = await createClient();
+  const { turmaId: turmaIdParam } = await searchParams;
 
   const [alunoRaw, escola, disciplinas, matriz] = await Promise.all([
     cache.getOrSet(`aluno:${id}`, async () => {
-      const { data } = await supabase.from("alunos").select("*").eq("id", id).single();
-      return data;
+      const rows = await db`SELECT * FROM alunos WHERE id = ${id} LIMIT 1`;
+      return (rows[0] ?? null) as Aluno | null;
     }),
     cache.getOrSet(`escola:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase.from("escolas").select("*").eq("id", ESCOLA_ID).single();
-      return data;
+      const rows = await db`SELECT * FROM escolas WHERE id = ${ESCOLA_ID} LIMIT 1`;
+      return rows[0] ?? null;
     }),
     cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID);
-      return (data ?? []) as Disciplina[];
+      const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      return rows as unknown as Disciplina[];
     }),
     cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID);
-      return (data ?? []) as MatrizDisciplina[];
+      const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      return rows as unknown as MatrizDisciplina[];
     }),
   ]);
 
@@ -76,12 +74,12 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
   }
 
   const aluno = alunoRaw as Aluno;
-  const bimestreAtual = escola?.bimestre_atual ?? 1;
+  const bimestreAtual = (escola?.bimestre_atual as number | undefined) ?? 1;
   const bimestres = [1, 2, 3, 4];
 
   const turma = await cache.getOrSet(`turma:${aluno.turma_id}`, async () => {
-    const { data } = await supabase.from("turmas").select("*").eq("id", aluno.turma_id).single();
-    return data as Turma | null;
+    const rows = await db`SELECT * FROM turmas WHERE id = ${aluno.turma_id} LIMIT 1`;
+    return (rows[0] ?? null) as Turma | null;
   });
 
   const grupo = turma?.grupo_pedagogico ?? "";
@@ -108,12 +106,11 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
     bimestres.map(async (b) => ({
       bimestre: b,
       notas: await cache.getOrSet(`notas:aluno:${aluno.id}:bim:${b}`, () =>
-        buscarNotasBimestre(supabase, aluno.id, b)
+        buscarNotasBimestre(aluno.id, b)
       ),
     }))
   );
 
-  // Monta tabela: disciplina → { bim1, bim2, bim3, bim4, media }
   const tabelaDisciplinas = disciplinasDaTurma.map((disc) => {
     const notasBim = bimestres.map((b) => {
       const grupo = notasPorBimestre.find((g) => g.bimestre === b);
@@ -168,7 +165,7 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                   {aluno.nome}
                 </h1>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Evolução por disciplina — {escola?.ano_letivo ?? 2026}
+                  Evolução por disciplina — {(escola?.ano_letivo as number | undefined) ?? 2026}
                 </p>
               </div>
 

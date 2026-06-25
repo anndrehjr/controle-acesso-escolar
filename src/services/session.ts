@@ -1,25 +1,22 @@
-import { createClient } from "../lib/supabase/client";
+interface Usuario {
+  id: string
+  nome: string
+  email: string
+  role: string
+  escola_id: string | null
+}
 
-export async function getCurrentUser() {
-  const supabase = createClient();
+export async function getCurrentUser(): Promise<Usuario | null> {
+  try {
+    const response = await fetch('/api/auth/me')
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    if (!response.ok) {
+      return null
+    }
 
-  if (!session) {
-    return null;
+    const data = await response.json() as { usuario: Usuario }
+    return data.usuario
+  } catch {
+    return null
   }
-
-  const { data: usuario, error } = await supabase
-    .from("usuarios")
-    .select("*")
-    .eq("auth_id", session.user.id)
-    .single();
-
-  if (error || !usuario) {
-    return null;
-  }
-
-  return usuario;
 }

@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "../../services/auth";
-import { createClient } from "../../lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -17,32 +15,16 @@ export default function LoginPage() {
     try {
       setCarregando(true);
 
-      const { data, error } = await login(email, senha);
+      const { usuario } = await login(email, senha);
 
-      if (error || !data.user) {
-        alert("E-mail ou senha inválidos");
-        return;
-      }
-
-      const { data: perfil, error: perfilError } = await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("auth_id", data.user.id)
-        .single();
-
-      if (perfilError || !perfil) {
-        alert("Perfil não encontrado no sistema");
-        return;
-      }
-
-      if (perfil.role === "SUPER_ADMIN") {
+      if (usuario.role === "SUPER_ADMIN") {
         router.replace("/dashboard");
         router.refresh();
         return;
       }
 
-      if (perfil.role === "ADMIN_ESCOLA") {
-        router.replace(`/dashboard/escolas/${perfil.escola_id}`);
+      if (usuario.role === "ADMIN_ESCOLA") {
+        router.replace(`/dashboard/escolas/${usuario.escola_id}`);
         router.refresh();
         return;
       }
@@ -50,7 +32,8 @@ export default function LoginPage() {
       alert("Usuário sem permissão configurada");
     } catch (err) {
       console.error(err);
-      alert("Erro interno ao realizar login");
+      const message = err instanceof Error ? err.message : "Erro interno ao realizar login";
+      alert(message);
     } finally {
       setCarregando(false);
     }

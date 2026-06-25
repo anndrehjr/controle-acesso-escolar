@@ -1,4 +1,6 @@
-import { createClient } from "../../lib/supabase/server";
+import { redirect } from "next/navigation";
+import { requireAuth } from "../../lib/requireAuth";
+import db from "../../lib/db";
 import { cache } from "../../lib/cache";
 
 import KPICardsReal from "../../components/escola-dashboard/KPICardsReal";
@@ -23,37 +25,22 @@ import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib
 const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
 async function buscarNotas(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   escolaId: string,
   bimestre: number,
   turmaId?: string
 ): Promise<Nota[]> {
-  const tamanhoPagina = 1000;
-  let pagina = 0;
-  let todasNotas: Nota[] = [];
-
-  while (true) {
-    const inicio = pagina * tamanhoPagina;
-    const fim = inicio + tamanhoPagina - 1;
-
-    let query = supabase
-      .from("notas")
-      .select("*")
-      .eq("escola_id", escolaId)
-      .eq("bimestre", bimestre)
-      .range(inicio, fim);
-
-    if (turmaId) query = query.eq("turma_id", turmaId);
-
-    const { data, error } = await query;
-
-    if (error || !data || data.length === 0) break;
-    todasNotas = [...todasNotas, ...(data as Nota[])];
-    if (data.length < tamanhoPagina) break;
-    pagina++;
+  if (turmaId) {
+    const rows = await db`
+      SELECT * FROM notas
+      WHERE escola_id = ${escolaId} AND bimestre = ${bimestre} AND turma_id = ${turmaId}
+    `;
+    return rows as unknown as Nota[];
   }
-
-  return todasNotas;
+  const rows = await db`
+    SELECT * FROM notas
+    WHERE escola_id = ${escolaId} AND bimestre = ${bimestre}
+  `;
+  return rows as unknown as Nota[];
 }
 
 type PageProps = {
@@ -61,12 +48,14 @@ type PageProps = {
 };
 
 export default async function DashboardPage({ searchParams }: PageProps) {
-  const supabase = await createClient();
+  const usuario = await requireAuth();
+  if (!usuario) redirect("/login");
+
   const { bimestre: bimestreParam, turma: turmaParam, tab: tabParam } = await searchParams;
 
   const escola = await cache.getOrSet(`escola:${ESCOLA_ID}`, async () => {
-    const { data } = await supabase.from("escolas").select("*").eq("id", ESCOLA_ID).single();
-    return data;
+    const rows = await db`SELECT * FROM escolas WHERE id = ${ESCOLA_ID} LIMIT 1`;
+    return rows[0] ?? null;
   });
 
   if (!escola) {
@@ -75,51 +64,40 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-400">Escola não encontrada</h1>
           <p className="mt-2 text-zinc-400">
-            Execute o schema.sql no Supabase e verifique NEXT_PUBLIC_ESCOLA_ID no .env.local
+            Verifique NEXT_PUBLIC_ESCOLA_ID no .env.local
           </p>
         </div>
       </main>
     );
   }
 
-  const bimestreAlvo = bimestreParam ? Number(bimestreParam) : escola.bimestre_atual ?? 1;
+  const bimestreAlvo = bimestreParam ? Number(bimestreParam) : (escola.bimestre_atual as number | undefined) ?? 1;
   const turmaId = turmaParam ?? null;
 
-  // Busca todas as turmas sempre (para o seletor e ranking completo)
   const todasTurmas = await cache.getOrSet(`turmas:${ESCOLA_ID}`, async () => {
-    const { data } = await supabase
-      .from("turmas")
-      .select("*")
-      .eq("escola_id", ESCOLA_ID)
-      .order("ano_serie", { ascending: true });
-    return (data ?? []) as Turma[];
+    const rows = await db`
+      SELECT * FROM turmas WHERE escola_id = ${ESCOLA_ID} ORDER BY ano_serie ASC
+    `;
+    return rows as unknown as Turma[];
   });
 
-  // Alunos e notas: filtrados pela turma se selecionada
-  const alunosQuery = supabase
-    .from("alunos")
-    .select("*")
-    .eq("escola_id", ESCOLA_ID)
-    .eq("ativo", true);
-
-  const { data: alunos = [] } = turmaId
-    ? await alunosQuery.eq("turma_id", turmaId)
-    : await alunosQuery;
+  const alunos: Aluno[] = turmaId
+    ? (await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND ativo = true AND turma_id = ${turmaId}`) as unknown as Aluno[]
+    : (await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND ativo = true`) as unknown as Aluno[];
 
   const [disciplinas, matriz] = await Promise.all([
     cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase.from("disciplinas").select("*").eq("escola_id", ESCOLA_ID);
-      return (data ?? []) as Disciplina[];
+      const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      return rows as unknown as Disciplina[];
     }),
     cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase.from("matriz_disciplinas").select("*").eq("escola_id", ESCOLA_ID);
-      return data ?? [];
+      const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      return rows as unknown as MatrizDisciplina[];
     }),
   ]);
 
-  const notas = await buscarNotas(supabase, ESCOLA_ID, bimestreAlvo, turmaId ?? undefined);
+  const notas = await buscarNotas(ESCOLA_ID, bimestreAlvo, turmaId ?? undefined);
 
-  // Turmas a exibir no dashboard: todas (para ranking de contexto) ou só a selecionada
   const turmasParaAnalise = turmaId
     ? (todasTurmas as Turma[]).filter((t) => t.id === turmaId)
     : (todasTurmas as Turma[]);
@@ -130,7 +108,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     turmas: turmasParaAnalise,
     disciplinas: disciplinas as Disciplina[],
     bimestre: bimestreAlvo,
-    anoLetivo: escola.ano_letivo ?? 2026,
+    anoLetivo: (escola.ano_letivo as number | undefined) ?? 2026,
   });
 
   const distribuicaoPedagogica = buildDistribuicaoPedagogica({
@@ -152,11 +130,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
       <HeaderEscola
-        nome={escola.nome}
-        cidade={escola.cidade ?? ""}
-        estado={escola.estado ?? ""}
+        nome={escola.nome as string}
+        cidade={(escola.cidade as string | undefined) ?? ""}
+        estado={(escola.estado as string | undefined) ?? ""}
         bimestre={bimestreAlvo}
-        anoLetivo={escola.ano_letivo ?? 2026}
+        anoLetivo={(escola.ano_letivo as number | undefined) ?? 2026}
         turmas={(todasTurmas as Turma[]).map((t) => ({ id: t.id, nome: t.nome }))}
         turmaAtualId={turmaId}
       />
@@ -226,7 +204,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 alunosTransferidos={dashboard.alunosTransferidos.length}
                 totalNotas={dashboard.notasValidas.length}
                 bimestre={bimestreAlvo}
-                anoLetivo={escola.ano_letivo ?? 2026}
+                anoLetivo={(escola.ano_letivo as number | undefined) ?? 2026}
               />
               <ListaTurmas turmas={turmasParaAnalise} />
             </section>
@@ -240,7 +218,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               alunosTransferidos={dashboard.alunosTransferidos.length}
               totalNotas={dashboard.notasValidas.length}
               bimestre={bimestreAlvo}
-              anoLetivo={escola.ano_letivo ?? 2026}
+              anoLetivo={(escola.ano_letivo as number | undefined) ?? 2026}
             />
           </div>
         }

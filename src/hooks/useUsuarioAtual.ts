@@ -9,8 +9,6 @@ type UsuarioAtual = {
   email: string;
   role: "SUPER_ADMIN" | "ADMIN_ESCOLA" | string;
   escola_id: string | null;
-  auth_id: string;
-  ativo: boolean;
 };
 
 export function useUsuarioAtual() {

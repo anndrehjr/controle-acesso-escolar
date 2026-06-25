@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../lib/supabase/server";
+import { getTokenFromRequest, verifyToken } from "../../../../lib/auth";
+import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { cache } from "../../../../lib/cache";
 
@@ -10,152 +11,91 @@ import type {
   Turma,
 } from "../../../../lib/analytics/types";
 
-async function buscarTodasNotas(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  escolaId: string
-) {
-  const tamanhoPagina = 1000;
-  let pagina = 0;
-  let todasNotas: Nota[] = [];
-
-  while (true) {
-    const inicio = pagina * tamanhoPagina;
-    const fim = inicio + tamanhoPagina - 1;
-
-    const { data, error } = await supabase
-      .from("notas")
-      .select("*")
-      .eq("escola_id", escolaId)
-      .range(inicio, fim);
-
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-
-    todasNotas = [...todasNotas, ...(data as Nota[])];
-
-    if (data.length < tamanhoPagina) break;
-
-    pagina++;
-  }
-
-  return todasNotas;
-}
-
 export async function GET(request: Request) {
   try {
-  const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    const escolaId = searchParams.get("escolaId");
 
-  const { searchParams } = new URL(request.url);
-  const escolaId = searchParams.get("escolaId");
+    if (!escolaId) {
+      return NextResponse.json({ error: "escolaId obrigatório" }, { status: 400 });
+    }
 
-  if (!escolaId) {
-    return NextResponse.json(
-      { error: "escolaId obrigatório" },
-      { status: 400 }
-    );
-  }
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const perfil = await verifyToken(token);
+    if (!perfil) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
 
-  if (!user) {
-    return NextResponse.json(
-      { error: "Não autenticado" },
-      { status: 401 }
-    );
-  }
+    if (!perfil.id) {
+      return NextResponse.json({ error: "Perfil inválido" }, { status: 401 });
+    }
 
-  const { data: perfil } = await supabase
-    .from("usuarios")
-    .select("id, role, escola_id, ativo")
-    .eq("auth_id", user.id)
-    .single();
+    const podeAcessar =
+      perfil.role === "SUPER_ADMIN" ||
+      (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
 
-  if (!perfil || perfil.ativo === false) {
-    return NextResponse.json(
-      { error: "Perfil inválido" },
-      { status: 401 }
-    );
-  }
+    if (!podeAcessar) {
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    }
 
-  const podeAcessar =
-    perfil.role === "SUPER_ADMIN" ||
-    (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
+    const escolaRows = await db`SELECT * FROM escolas WHERE id = ${escolaId} LIMIT 1`;
+    const escola = escolaRows[0];
 
-  if (!podeAcessar) {
-    return NextResponse.json(
-      { error: "Sem permissão" },
-      { status: 403 }
-    );
-  }
+    if (!escola) {
+      return NextResponse.json({ error: "Escola não encontrada" }, { status: 404 });
+    }
 
-  const { data: escola } = await supabase
-    .from("escolas")
-    .select("*")
-    .eq("id", escolaId)
-    .single();
+    const [turmas, alunos, disciplinas] = await Promise.all([
+      cache.getOrSet(`turmas:${escolaId}`, async () => {
+        const rows = await db`SELECT * FROM turmas WHERE escola_id = ${escolaId}`;
+        return rows as unknown as Turma[];
+      }),
+      cache.getOrSet(`alunos:${escolaId}`, async () => {
+        const rows = await db`SELECT * FROM alunos WHERE escola_id = ${escolaId} AND ativo = true`;
+        return rows as unknown as Aluno[];
+      }),
+      cache.getOrSet(`disciplinas:${escolaId}`, async () => {
+        const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${escolaId}`;
+        return rows as unknown as Disciplina[];
+      }),
+    ]);
 
-  if (!escola) {
-    return NextResponse.json(
-      { error: "Escola não encontrada" },
-      { status: 404 }
-    );
-  }
+    const notas = await cache.getOrSet(`notas:${escolaId}`, async () => {
+      const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId}`;
+      return rows as unknown as Nota[];
+    });
 
-  const [turmas, alunos, disciplinas] = await Promise.all([
-    cache.getOrSet(`turmas:${escolaId}`, async () => {
-      const { data } = await supabase.from("turmas").select("*").eq("escola_id", escolaId);
-      return (data ?? []) as Turma[];
-    }),
-    cache.getOrSet(`alunos:${escolaId}`, async () => {
-      const { data } = await supabase
-        .from("alunos")
-        .select("*")
-        .eq("escola_id", escolaId)
-        .eq("ativo", true);
-      return (data ?? []) as Aluno[];
-    }),
-    cache.getOrSet(`disciplinas:${escolaId}`, async () => {
-      const { data } = await supabase.from("disciplinas").select("*").eq("escola_id", escolaId);
-      return (data ?? []) as Disciplina[];
-    }),
-  ]);
+    const dashboard = buildSchoolDashboard({
+      alunos,
+      notas,
+      turmas,
+      disciplinas,
+      bimestre: (escola.bimestre_atual as number | undefined) ?? 1,
+      anoLetivo: (escola.ano_letivo as number | undefined) ?? 2026,
+    });
 
-  const notas = await cache.getOrSet(`notas:${escolaId}`, () =>
-    buscarTodasNotas(supabase, escolaId)
-  );
-
-  const dashboard = buildSchoolDashboard({
-    alunos,
-    notas,
-    turmas,
-    disciplinas,
-    bimestre: escola.bimestre_atual ?? 1,
-    anoLetivo: escola.ano_letivo ?? 2026,
-  });
-
-  return NextResponse.json({
-    data: {
-      totalAlunos: dashboard.alunosAtivos.length,
-      totalTurmas: turmas.length,
-      mediaGeral: dashboard.mediaGeral,
-      alunosCriticos: dashboard.alunosCriticos.length,
-      alunosAbaixoBasico: dashboard.alunosCriticos.length,
-      percentualAdequado: dashboard.percentualAdequado,
-      totalAdequadosOuAvancados:
-        dashboard.alunosAdequadosOuAvancados.length,
-      melhorTurma: dashboard.melhorTurma?.turma.nome ?? "-",
-      melhorTurmaMedia: dashboard.melhorTurma?.media ?? 0,
-      turmaAlerta: dashboard.turmaAlerta?.turma.nome ?? "-",
-      turmaAlertaMedia: dashboard.turmaAlerta?.media ?? 0,
-      disciplinaCritica:
-        dashboard.disciplinaMaisCritica?.disciplina.nome ?? "-",
-      disciplinaCriticaPercentual:
-        dashboard.disciplinaMaisCritica?.percentual ?? 0,
-      alunosAtencao: dashboard.alunosAtencao,
-    },
-  });
+    return NextResponse.json({
+      data: {
+        totalAlunos: dashboard.alunosAtivos.length,
+        totalTurmas: turmas.length,
+        mediaGeral: dashboard.mediaGeral,
+        alunosCriticos: dashboard.alunosCriticos.length,
+        alunosAbaixoBasico: dashboard.alunosCriticos.length,
+        percentualAdequado: dashboard.percentualAdequado,
+        totalAdequadosOuAvancados: dashboard.alunosAdequadosOuAvancados.length,
+        melhorTurma: dashboard.melhorTurma?.turma.nome ?? "-",
+        melhorTurmaMedia: dashboard.melhorTurma?.media ?? 0,
+        turmaAlerta: dashboard.turmaAlerta?.turma.nome ?? "-",
+        turmaAlertaMedia: dashboard.turmaAlerta?.media ?? 0,
+        disciplinaCritica: dashboard.disciplinaMaisCritica?.disciplina.nome ?? "-",
+        disciplinaCriticaPercentual: dashboard.disciplinaMaisCritica?.percentual ?? 0,
+        alunosAtencao: dashboard.alunosAtencao,
+      },
+    });
   } catch (err) {
     console.error("[kpis]", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
