@@ -55,8 +55,11 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const notas = await cache.getOrSet(`notas:${escolaId}`, async () => {
-      const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId}`;
+    const bimestreAtual = (escola.bimestre_atual as number | undefined) ?? 1;
+    const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
+
+    const notas = await cache.getOrSet(`notas:${escolaId}:bim:${bimestreAtual}`, async () => {
+      const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND bimestre = ${bimestreAtual} AND ano_letivo = ${anoLetivo}`;
       return rows as unknown as Nota[];
     });
 
@@ -65,8 +68,8 @@ export async function GET(request: Request) {
       notas,
       turmas,
       disciplinas,
-      bimestre: (escola.bimestre_atual as number | undefined) ?? 1,
-      anoLetivo: (escola.ano_letivo as number | undefined) ?? 2026,
+      bimestre: bimestreAtual,
+      anoLetivo,
     });
 
     return NextResponse.json({

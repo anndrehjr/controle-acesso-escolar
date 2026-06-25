@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
     const [turmaData, alunos, disciplinas] = await Promise.all([
       cache.getOrSet(`turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM turmas WHERE id = ${turmaId} LIMIT 1`;
+        const rows = await db`SELECT * FROM turmas WHERE id = ${turmaId} AND escola_id = ${ESCOLA_ID} LIMIT 1`;
         return (rows[0] ?? null) as Turma | null;
       }),
       cache.getOrSet(`alunos:${ESCOLA_ID}:turma:${turmaId}`, async () => {
