@@ -221,7 +221,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               turmaAlertaMedia={dashboard.turmaAlerta?.media ?? 0}
               disciplinaCritica={dashboard.disciplinaMaisCritica?.disciplina.nome ?? "-"}
               disciplinaCriticaPercentual={dashboard.disciplinaMaisCritica?.percentual ?? 0}
-              alunosAtencao={dashboard.alunosAtencao}
+              alunosAtencao={alunosBasico.length}
               turmaFiltrada={!!turmaId}
               melhorAluno={
                 dashboard.melhorAlunoDaTurma
@@ -250,7 +250,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ResumoPedagogico
-                alunosAtencao={dashboard.alunosAtencao}
+                alunosAtencao={alunosBasico.length}
                 alunosTransferidos={dashboard.alunosTransferidos.length}
                 totalNotas={dashboard.notasValidas.length}
                 bimestre={bimestreAlvo}
@@ -264,7 +264,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <RankingTurmas ranking={dashboard.rankingTurmas} />
             <ResumoPedagogico
-              alunosAtencao={dashboard.alunosAtencao}
+              alunosAtencao={alunosBasico.length}
               alunosTransferidos={dashboard.alunosTransferidos.length}
               totalNotas={dashboard.notasValidas.length}
               bimestre={bimestreAlvo}
