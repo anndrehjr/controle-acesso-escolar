@@ -198,7 +198,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               totalTurmas={turmasParaAnalise.length}
               mediaGeral={dashboard.mediaGeral}
               alunosCriticos={alertas.criticos.length}
-              alunosAbaixoBasico={alertas.criticos.length}
+              alunosAbaixoBasico={alertas.abaixoBasico}
               percentualAdequado={dashboard.percentualAdequado}
               totalAdequadosOuAvancados={dashboard.alunosAdequadosOuAvancados.length}
               melhorTurma={dashboard.melhorTurma?.turma.nome ?? "-"}
