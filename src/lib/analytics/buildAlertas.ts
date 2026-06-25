@@ -1,5 +1,13 @@
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "./types";
 
+// Fallback: infer grupo_pedagogico from turma name when the field is null/empty
+function inferirGrupo(nome: string): string {
+  const n = nome.toLowerCase();
+  if (n.includes("série") || n.includes("serie") || n.includes("médio") || n.includes("medio")) return "EM";
+  if (n.includes("ano") || n.includes("fundamental")) return "EF";
+  return "";
+}
+
 export type DisciplinaAlertaItem = {
   disciplinaId: string;
   disciplinaNome: string;
@@ -53,13 +61,14 @@ export function buildAlertas({
     const turma = turmaMap.get(aluno.turma_id);
     if (!turma) continue;
 
-    const grupo = turma.grupo_pedagogico;
+    // ⚠️8 fix: infer grupo from turma name when grupo_pedagogico is null
+    const grpRaw = String(turma.grupo_pedagogico ?? "").trim().toUpperCase();
+    const grupo = grpRaw || inferirGrupo(turma.nome);
 
     const matrizDaTurma = matriz
       .filter((m) => {
         const etapa = String(m.etapa ?? "").trim().toUpperCase();
-        const grp = String(grupo ?? "").trim().toUpperCase();
-        return etapa === grp;
+        return etapa === grupo;
       })
       .sort((a, b) => a.codigo.localeCompare(b.codigo));
 
@@ -81,8 +90,10 @@ export function buildAlertas({
     const notasValidas: number[] = [];
 
     for (const disciplina of disciplinasDaTurma) {
+      // ⚠️5 fix: sort by id to guarantee most-recent note (no ORDER BY in query)
       const notaEntry = notasAluno
         .filter((n) => String(n.disciplina_id).trim() === String(disciplina.id).trim())
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)))
         .at(-1);
       if (notaEntry?.nota == null) continue;
       const nota = Number(notaEntry.nota);

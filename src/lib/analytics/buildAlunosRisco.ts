@@ -1,5 +1,12 @@
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "./types";
 
+function inferirGrupo(nome: string): string {
+  const n = nome.toLowerCase();
+  if (n.includes("série") || n.includes("serie") || n.includes("médio") || n.includes("medio")) return "EM";
+  if (n.includes("ano") || n.includes("fundamental")) return "EF";
+  return "";
+}
+
 export type DisciplinaRisco = {
   disciplinaId: string;
   disciplinaNome: string;
@@ -42,13 +49,13 @@ export function buildAlunosRisco({
     const turma = turmaMap.get(aluno.turma_id);
     if (!turma) continue;
 
-    const grupo = turma.grupo_pedagogico;
+    const grpRaw = String(turma.grupo_pedagogico ?? "").trim().toUpperCase();
+    const grupo = grpRaw || inferirGrupo(turma.nome);
 
     const matrizDaTurma = matriz
       .filter((m) => {
         const etapaMatriz = String(m.etapa ?? "").trim().toUpperCase();
-        const grupoTurma = String(grupo ?? "").trim().toUpperCase();
-        return etapaMatriz === grupoTurma;
+        return etapaMatriz === grupo;
       })
       .sort((a, b) => a.codigo.localeCompare(b.codigo));
 
@@ -75,7 +82,9 @@ export function buildAlunosRisco({
       const notasDaDisciplina = notasAluno.filter(
         (n) => String(n.disciplina_id).trim() === String(disciplina.id).trim()
       );
-      const notaEntry = notasDaDisciplina.at(-1);
+      const notaEntry = notasDaDisciplina
+        .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+        .at(-1);
       if (notaEntry?.nota == null) continue;
       const nota = Number(notaEntry.nota);
       notasValidas.push(nota);
