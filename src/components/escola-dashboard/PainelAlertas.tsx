@@ -150,7 +150,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
                 <span className="text-xs font-bold uppercase tracking-widest text-amber-500">Atenção</span>
               </div>
               <p className="text-5xl font-black text-amber-300">{totalAtencao}</p>
-              <p className="mt-1.5 text-xs text-zinc-400">disciplinas em risco, média ≥ 5</p>
+              <p className="mt-1.5 text-xs text-zinc-400">alunos com média 5,0 – 6,9</p>
               <p className="mt-0.5 text-xs text-zinc-600">Clique para filtrar</p>
             </div>
             {filtro === "atencao" && (
