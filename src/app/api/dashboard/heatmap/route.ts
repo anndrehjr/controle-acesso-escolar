@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../lib/supabase/server";
+import { getTokenFromRequest, verifyToken } from "../../../../lib/auth";
+import db from "../../../../lib/db";
 import { buildHeatmapPedagogico } from "../../../../lib/analytics/buildHeatmapPedagogico";
 import { cache } from "../../../../lib/cache";
 
@@ -13,95 +14,60 @@ import type {
 
 const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
-async function buscarTodasNotas(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  escolaId: string,
-  bimestre: number
-): Promise<Nota[]> {
-  const tamanhoPagina = 1000;
-  let pagina = 0;
-  let todasNotas: Nota[] = [];
-
-  while (true) {
-    const inicio = pagina * tamanhoPagina;
-    const fim = inicio + tamanhoPagina - 1;
-
-    const { data, error } = await supabase
-      .from("notas")
-      .select("*")
-      .eq("escola_id", escolaId)
-      .eq("bimestre", bimestre)
-      .range(inicio, fim);
-
-    if (error || !data || data.length === 0) break;
-
-    todasNotas = [...todasNotas, ...(data as Nota[])];
-    if (data.length < tamanhoPagina) break;
-    pagina++;
-  }
-
-  return todasNotas;
-}
-
 export async function GET(request: Request) {
   try {
-  const supabase = await createClient();
-  const { searchParams } = new URL(request.url);
-  const bimestre = Number(searchParams.get("bimestre") ?? "1");
-  const turmaId = searchParams.get("turma");
+    const token = getTokenFromRequest(request);
+    if (!token || !(await verifyToken(token))) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
 
-  const turmasKey = turmaId ? `turmas:${ESCOLA_ID}:${turmaId}` : `turmas:${ESCOLA_ID}`;
-  const alunosKey = turmaId ? `alunos:${ESCOLA_ID}:turma:${turmaId}` : `alunos:${ESCOLA_ID}`;
+    const { searchParams } = new URL(request.url);
+    const bimestre = Number(searchParams.get("bimestre") ?? "1");
+    const turmaId = searchParams.get("turma");
 
-  const [turmas, alunos, disciplinas, matriz] = await Promise.all([
-    cache.getOrSet(turmasKey, async () => {
-      const q = supabase
-        .from("turmas")
-        .select("*")
-        .eq("escola_id", ESCOLA_ID)
-        .order("ano_serie", { ascending: true });
-      const { data } = await (turmaId ? q.eq("id", turmaId) : q);
-      return (data ?? []) as Turma[];
-    }),
-    cache.getOrSet(alunosKey, async () => {
-      const q = supabase
-        .from("alunos")
-        .select("*")
-        .eq("escola_id", ESCOLA_ID)
-        .eq("ativo", true);
-      const { data } = await (turmaId ? q.eq("turma_id", turmaId) : q);
-      return (data ?? []) as Aluno[];
-    }),
-    cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase
-        .from("disciplinas")
-        .select("*")
-        .eq("escola_id", ESCOLA_ID);
-      return (data ?? []) as Disciplina[];
-    }),
-    cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
-      const { data } = await supabase
-        .from("matriz_disciplinas")
-        .select("*")
-        .eq("escola_id", ESCOLA_ID);
-      return (data ?? []) as MatrizDisciplina[];
-    }),
-  ]);
+    const turmasKey = turmaId ? `turmas:${ESCOLA_ID}:${turmaId}` : `turmas:${ESCOLA_ID}`;
+    const alunosKey = turmaId ? `alunos:${ESCOLA_ID}:turma:${turmaId}` : `alunos:${ESCOLA_ID}`;
 
-  const notas = await cache.getOrSet(
-    `notas:${ESCOLA_ID}:bim:${bimestre}`,
-    () => buscarTodasNotas(supabase, ESCOLA_ID, bimestre)
-  );
+    const [turmas, alunos, disciplinas, matriz] = await Promise.all([
+      cache.getOrSet(turmasKey, async () => {
+        const rows = turmaId
+          ? await db`SELECT * FROM turmas WHERE escola_id = ${ESCOLA_ID} AND id = ${turmaId} ORDER BY ano_serie ASC`
+          : await db`SELECT * FROM turmas WHERE escola_id = ${ESCOLA_ID} ORDER BY ano_serie ASC`;
+        return rows as unknown as Turma[];
+      }),
+      cache.getOrSet(alunosKey, async () => {
+        const rows = turmaId
+          ? await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND ativo = true AND turma_id = ${turmaId}`
+          : await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND ativo = true`;
+        return rows as unknown as Aluno[];
+      }),
+      cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
+        const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+        return rows as unknown as Disciplina[];
+      }),
+      cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
+        const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+        return rows as unknown as MatrizDisciplina[];
+      }),
+    ]);
 
-  const heatmap = buildHeatmapPedagogico({
-    alunos,
-    notas,
-    turmas,
-    disciplinas,
-    matriz,
-  });
+    const notas = await cache.getOrSet(
+      `notas:${ESCOLA_ID}:bim:${bimestre}`,
+      async () => {
+        const rows = await db`SELECT * FROM notas WHERE escola_id = ${ESCOLA_ID} AND bimestre = ${bimestre}`;
+        return rows as unknown as Nota[];
+      }
+    );
 
-  return NextResponse.json({ data: heatmap });
+    const heatmap = buildHeatmapPedagogico({
+      alunos,
+      notas,
+      turmas,
+      disciplinas,
+      matriz,
+    });
+
+    return NextResponse.json({ data: heatmap });
   } catch (err) {
     console.error("[heatmap]", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
