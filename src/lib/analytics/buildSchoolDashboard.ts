@@ -102,7 +102,8 @@ export function buildSchoolDashboard({
       ? (alunosAdequadosOuAvancados.length / alunosComNota.length) * 100
       : 0;
 
-  const alunosAtencao = alunosAtivos.filter((aluno) => aluno.em_atencao).length;
+  // ⚠️6 fix: derive from grades (faixa básico 5,0–6,9) instead of manual em_atencao flag
+  const alunosAtencao = alunosComNota.filter((item) => item.nivel === "basico").length;
 
   const rankingTurmas = turmas
     .map((turma) => {
@@ -140,12 +141,16 @@ export function buildSchoolDashboard({
 
           if (!turma) return false;
 
+          // ⚠️7 fix: use grupo_pedagogico when available, fall back to name matching
+          const grp = String(turma.grupo_pedagogico ?? "").trim().toUpperCase();
           const nomeTurma = turma.nome.toLowerCase();
 
           const ehFundamental =
+            grp.startsWith("EF") || grp === "FUNDAMENTAL" ||
             nomeTurma.includes("ano") || nomeTurma.includes("fundamental");
 
           const ehMedio =
+            grp.startsWith("EM") || grp === "MEDIO" || grp === "MÉDIO" ||
             nomeTurma.includes("série") ||
             nomeTurma.includes("serie") ||
             nomeTurma.includes("médio") ||
