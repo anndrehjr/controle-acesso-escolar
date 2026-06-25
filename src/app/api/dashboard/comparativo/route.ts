@@ -26,7 +26,7 @@ export async function GET(request: Request) {
         return (rows[0] ?? null) as Turma | null;
       }),
       cache.getOrSet(`alunos:${ESCOLA_ID}:turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM alunos WHERE turma_id = ${turmaId} AND ativo = true`;
+        const rows = await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND turma_id = ${turmaId} AND ativo = true`;
         return rows as unknown as Aluno[];
       }),
       cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {

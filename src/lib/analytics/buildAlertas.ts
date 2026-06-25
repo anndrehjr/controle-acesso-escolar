@@ -36,10 +36,16 @@ export function buildAlertas({
   turmas,
   disciplinas,
   matriz,
-}: Params): { criticos: AlunoAlertaItem[]; atencao: AlunoAlertaItem[]; total: number } {
+}: Params): {
+  criticos: AlunoAlertaItem[];
+  atencao: AlunoAlertaItem[];
+  abaixoBasico: number;
+  total: number;
+} {
   const turmaMap = new Map(turmas.map((t) => [t.id, t]));
   const criticos: AlunoAlertaItem[] = [];
   const atencao: AlunoAlertaItem[] = [];
+  let abaixoBasico = 0;
 
   for (const aluno of alunos) {
     if (aluno.status === "TRANSFERIDO" || !aluno.ativo) continue;
@@ -92,6 +98,7 @@ export function buildAlertas({
     }
 
     const count = disciplinasAbaixo.length;
+    if (count >= 1) abaixoBasico++;
     if (count < 2) continue;
 
     const mediaGeral =
@@ -127,5 +134,5 @@ export function buildAlertas({
   criticos.sort(sortFn);
   atencao.sort(sortFn);
 
-  return { criticos, atencao, total: criticos.length + atencao.length };
+  return { criticos, atencao, abaixoBasico, total: criticos.length + atencao.length };
 }
