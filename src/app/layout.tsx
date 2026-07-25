@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavigationProgressBar } from "../components/NavigationProgressBar";
-import { ThemeToggle } from "../components/ThemeToggle";
-import { UserMenu } from "../components/UserMenu";
+import { TopBar } from "../components/TopBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,8 +39,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <NavigationProgressBar />
-        <ThemeToggle />
-        <UserMenu />
+        <TopBar />
         {children}
       </body>
     </html>

@@ -33,7 +33,7 @@ export function UserMenu() {
   }
 
   return (
-    <div className="fixed top-4 left-4 z-50 flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900/90 py-1.5 pl-1.5 pr-2 text-sm text-zinc-300 shadow-xl backdrop-blur">
+    <div className="flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900 py-1.5 pl-1.5 pr-2 text-sm text-zinc-300">
       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800">
         <User className="h-3.5 w-3.5" />
       </span>
