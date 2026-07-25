@@ -21,19 +21,19 @@ export function ThemeToggle() {
   }
 
   // Evita mismatch de hidratação mostrando somente após mount no cliente
-  if (!mounted) return <div className="h-10 w-10" aria-hidden />;
+  if (!mounted) return <div className="h-6 w-6" aria-hidden />;
 
   return (
     <button
       onClick={toggle}
       aria-label={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
       title={theme === "dark" ? "Tema claro" : "Tema escuro"}
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition duration-300 hover:border-zinc-500 hover:text-white"
+      className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-white"
     >
       {theme === "dark" ? (
-        <Sun className="h-4 w-4" aria-hidden />
+        <Sun className="h-3 w-3" aria-hidden />
       ) : (
-        <Moon className="h-4 w-4" aria-hidden />
+        <Moon className="h-3 w-3" aria-hidden />
       )}
     </button>
   );
