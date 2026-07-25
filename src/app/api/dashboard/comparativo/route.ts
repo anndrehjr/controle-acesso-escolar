@@ -3,34 +3,44 @@ import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { cache } from "../../../../lib/cache";
+import { resolveEscolaAccess, podeVerTurma } from "../../../../lib/permissions";
 import type { Aluno, Disciplina, Nota, Turma } from "../../../../lib/analytics/types";
-
-const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const turmaId = searchParams.get("turma");
+    const escolaIdParam = searchParams.get("escolaId");
 
     if (!turmaId) {
       return NextResponse.json({ error: "turma obrigatória" }, { status: 400 });
     }
 
-    if (!(await checkApiAuth(request))) {
+    const perfil = await checkApiAuth(request);
+    if (!perfil) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    const escolaId = resolveEscolaAccess(perfil, escolaIdParam);
+    if (!escolaId) {
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    }
+
+    if (!(await podeVerTurma(perfil, escolaId, turmaId))) {
+      return NextResponse.json({ error: "Sem permissão para esta turma" }, { status: 403 });
     }
 
     const [turmaData, alunos, disciplinas] = await Promise.all([
       cache.getOrSet(`turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM turmas WHERE id = ${turmaId} AND escola_id = ${ESCOLA_ID} LIMIT 1`;
+        const rows = await db`SELECT * FROM turmas WHERE id = ${turmaId} AND escola_id = ${escolaId} LIMIT 1`;
         return (rows[0] ?? null) as Turma | null;
       }),
-      cache.getOrSet(`alunos:${ESCOLA_ID}:turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND turma_id = ${turmaId} AND ativo = true`;
+      cache.getOrSet(`alunos:${escolaId}:turma:${turmaId}`, async () => {
+        const rows = await db`SELECT * FROM alunos WHERE escola_id = ${escolaId} AND turma_id = ${turmaId} AND ativo = true`;
         return rows as unknown as Aluno[];
       }),
-      cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
-        const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      cache.getOrSet(`disciplinas:${escolaId}`, async () => {
+        const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${escolaId}`;
         return rows as unknown as Disciplina[];
       }),
     ]);
@@ -39,16 +49,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Turma não encontrada" }, { status: 404 });
     }
 
-    const escolaRows = await db`SELECT ano_letivo FROM escolas WHERE id = ${ESCOLA_ID} LIMIT 1`;
+    const escolaRows = await db`SELECT ano_letivo FROM escolas WHERE id = ${escolaId} LIMIT 1`;
     const anoLetivo = (escolaRows[0]?.ano_letivo as number | undefined) ?? new Date().getFullYear();
 
     const [notasB1, notasB2] = await Promise.all([
-      cache.getOrSet(`notas:${ESCOLA_ID}:bim:1:turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM notas WHERE escola_id = ${ESCOLA_ID} AND bimestre = 1 AND turma_id = ${turmaId}`;
+      cache.getOrSet(`notas:${escolaId}:bim:1:turma:${turmaId}`, async () => {
+        const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND bimestre = 1 AND turma_id = ${turmaId}`;
         return rows as unknown as Nota[];
       }),
-      cache.getOrSet(`notas:${ESCOLA_ID}:bim:2:turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM notas WHERE escola_id = ${ESCOLA_ID} AND bimestre = 2 AND turma_id = ${turmaId}`;
+      cache.getOrSet(`notas:${escolaId}:bim:2:turma:${turmaId}`, async () => {
+        const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND bimestre = 2 AND turma_id = ${turmaId}`;
         return rows as unknown as Nota[];
       }),
     ]);

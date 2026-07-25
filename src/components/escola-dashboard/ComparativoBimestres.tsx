@@ -30,7 +30,7 @@ type ComparativoData = {
   b2: BimestreSnapshot;
 };
 
-type Props = { turmaId: string };
+type Props = { turmaId: string; escolaId?: string };
 
 function DeltaBadge({
   delta,
@@ -130,7 +130,7 @@ function BarraDupla({ p1, p2 }: { p1: number | null; p2: number | null }) {
   );
 }
 
-export default function ComparativoBimestres({ turmaId }: Props) {
+export default function ComparativoBimestres({ turmaId, escolaId }: Props) {
   const [data, setData] = useState<ComparativoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -141,7 +141,9 @@ export default function ComparativoBimestres({ turmaId }: Props) {
       try {
         setLoading(true);
         setErro(null);
-        const res = await fetch(`/api/dashboard/comparativo?turma=${turmaId}`);
+        const params = new URLSearchParams({ turma: turmaId });
+        if (escolaId) params.set("escolaId", escolaId);
+        const res = await fetch(`/api/dashboard/comparativo?${params}`);
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Erro ao carregar comparativo");
         setData(json);
@@ -152,7 +154,7 @@ export default function ComparativoBimestres({ turmaId }: Props) {
       }
     }
     carregar();
-  }, [turmaId, refreshKey]);
+  }, [turmaId, escolaId, refreshKey]);
 
   if (loading) {
     return (

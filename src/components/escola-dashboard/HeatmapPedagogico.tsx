@@ -39,9 +39,10 @@ function getClasseNota(nota: number | null) {
 type Props = {
   bimestre: number;
   turmaId?: string | null;
+  escolaId?: string;
 };
 
-export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
+export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props) {
   const router = useRouter();
   const [data, setData] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,7 @@ export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
 
         const params = new URLSearchParams({ bimestre: String(bimestre) });
         if (turmaId) params.set("turma", turmaId);
+        if (escolaId) params.set("escolaId", escolaId);
         const response = await fetch(`/api/dashboard/heatmap?${params.toString()}`);
         const json = await response.json();
 
@@ -78,7 +80,7 @@ export default function HeatmapPedagogico({ bimestre, turmaId }: Props) {
     }
 
     carregarHeatmap();
-  }, [bimestre, turmaId, refreshKey]);
+  }, [bimestre, turmaId, escolaId, refreshKey]);
 
   const turmaAtual = data.find((t) => t.turmaId === turmaSelecionada) ?? data[0];
 
