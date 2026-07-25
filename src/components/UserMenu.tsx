@@ -33,15 +33,13 @@ export function UserMenu() {
   }
 
   return (
-    <div className="flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900 py-1.5 pl-1.5 pr-2 text-sm text-zinc-300">
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-800">
-        <User className="h-3.5 w-3.5" />
+    <div className="flex items-center gap-0.5 text-xs text-zinc-400">
+      <User className="h-3 w-3 text-zinc-500" />
+      <span className="ml-1 hidden font-medium text-zinc-300 sm:inline">
+        {usuario.nome}
       </span>
-      <span className="hidden flex-col leading-tight sm:flex">
-        <span className="font-medium text-white">{usuario.nome}</span>
-        <span className="text-[11px] text-zinc-400">
-          {NOME_PAPEL[usuario.role] ?? usuario.role}
-        </span>
+      <span className="hidden text-zinc-600 md:inline">
+        · {NOME_PAPEL[usuario.role] ?? usuario.role}
       </span>
 
       {capacidades?.manageUsuarios && (
@@ -49,9 +47,9 @@ export function UserMenu() {
           href="/dashboard/usuarios"
           title="Usuários"
           aria-label="Usuários"
-          className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+          className="ml-2 flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-white"
         >
-          <Users className="h-3.5 w-3.5" />
+          <Users className="h-3 w-3" />
         </Link>
       )}
 
@@ -60,9 +58,9 @@ export function UserMenu() {
           href="/dashboard/logs"
           title="Logs de auditoria"
           aria-label="Logs de auditoria"
-          className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+          className="flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/10 hover:text-white"
         >
-          <ScrollText className="h-3.5 w-3.5" />
+          <ScrollText className="h-3 w-3" />
         </Link>
       )}
 
@@ -71,9 +69,9 @@ export function UserMenu() {
         disabled={saindo}
         title="Sair"
         aria-label="Sair"
-        className="ml-1 flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 transition hover:bg-red-950/60 hover:text-red-300 disabled:opacity-50"
+        className="ml-1 flex h-6 w-6 items-center justify-center rounded-full text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
       >
-        <LogOut className="h-3.5 w-3.5" />
+        <LogOut className="h-3 w-3" />
       </button>
     </div>
   );
