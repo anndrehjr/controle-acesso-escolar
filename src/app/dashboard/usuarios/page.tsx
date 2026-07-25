@@ -235,7 +235,7 @@ function ConteudoUsuarios() {
 
 export default function UsuariosPage() {
   return (
-    <AuthGuard allow={["SUPER_ADMIN", "ADMIN_ESCOLA"]}>
+    <AuthGuard allow={["SUPER_ADMIN"]}>
       <ConteudoUsuarios />
     </AuthGuard>
   );

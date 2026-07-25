@@ -27,7 +27,7 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
   ADMIN_ESCOLA: {
     viewAllEscolas: false,
     viewAllTurmasDaEscola: true,
-    manageUsuarios: true,
+    manageUsuarios: false,
     viewAuditLogs: false,
   },
   PROFESSOR: {
