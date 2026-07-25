@@ -31,6 +31,7 @@ type TendenciaData = {
 
 type Props = {
   turmaId?: string | null;
+  escolaId?: string;
 };
 
 function corPorMedia(media: number): string {
@@ -84,7 +85,7 @@ function TooltipCustom(props: {
   );
 }
 
-export default function TendenciaBimestres({ turmaId }: Props) {
+export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
   const [data, setData] = useState<TendenciaData | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -101,6 +102,7 @@ export default function TendenciaBimestres({ turmaId }: Props) {
         setErro(null);
         const params = new URLSearchParams();
         if (turmaId) params.set("turma", turmaId);
+        if (escolaId) params.set("escolaId", escolaId);
         const res = await fetch(`/api/dashboard/tendencia?${params}`);
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Erro ao carregar tendência");
@@ -112,7 +114,7 @@ export default function TendenciaBimestres({ turmaId }: Props) {
       }
     }
     carregar();
-  }, [turmaId, refreshKey]);
+  }, [turmaId, escolaId, refreshKey]);
 
   if (loading) {
     return (

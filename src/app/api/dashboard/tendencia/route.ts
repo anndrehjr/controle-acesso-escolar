@@ -4,6 +4,7 @@ import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { buildAlertas } from "../../../../lib/analytics/buildAlertas";
 import { cache } from "../../../../lib/cache";
+import { resolveEscolaAccess, podeVerTurma } from "../../../../lib/permissions";
 import type {
   Aluno,
   Disciplina,
@@ -12,22 +13,31 @@ import type {
   Turma,
 } from "../../../../lib/analytics/types";
 
-const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
-
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const turmaId = searchParams.get("turma") ?? undefined;
+    const escolaIdParam = searchParams.get("escolaId");
 
-    if (!(await checkApiAuth(request))) {
+    const perfil = await checkApiAuth(request);
+    if (!perfil) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const turmasKey = turmaId ? `turmas:${ESCOLA_ID}:${turmaId}` : `turmas:${ESCOLA_ID}`;
-    const alunosKey = turmaId ? `alunos:${ESCOLA_ID}:turma:${turmaId}` : `alunos:${ESCOLA_ID}`;
-    const notasKey = turmaId ? `notas:${ESCOLA_ID}:turma:${turmaId}` : `notas:${ESCOLA_ID}`;
+    const escolaId = resolveEscolaAccess(perfil, escolaIdParam);
+    if (!escolaId) {
+      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+    }
 
-    const escolaRows = await db`SELECT ano_letivo FROM escolas WHERE id = ${ESCOLA_ID} LIMIT 1`;
+    if (turmaId && !(await podeVerTurma(perfil, escolaId, turmaId))) {
+      return NextResponse.json({ error: "Sem permissão para esta turma" }, { status: 403 });
+    }
+
+    const turmasKey = turmaId ? `turmas:${escolaId}:${turmaId}` : `turmas:${escolaId}`;
+    const alunosKey = turmaId ? `alunos:${escolaId}:turma:${turmaId}` : `alunos:${escolaId}`;
+    const notasKey = turmaId ? `notas:${escolaId}:turma:${turmaId}` : `notas:${escolaId}`;
+
+    const escolaRows = await db`SELECT ano_letivo FROM escolas WHERE id = ${escolaId} LIMIT 1`;
     const anoLetivo = (escolaRows[0]?.ano_letivo as number | undefined) ?? new Date().getFullYear();
 
     const turmaData = turmaId
@@ -41,31 +51,31 @@ export async function GET(request: Request) {
       cache.getOrSet(alunosKey, async () => {
         const rows = turmaId
           // escola_id always required for security
-          ? await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND turma_id = ${turmaId} AND ativo = true`
-          : await db`SELECT * FROM alunos WHERE escola_id = ${ESCOLA_ID} AND ativo = true`;
+          ? await db`SELECT * FROM alunos WHERE escola_id = ${escolaId} AND turma_id = ${turmaId} AND ativo = true`
+          : await db`SELECT * FROM alunos WHERE escola_id = ${escolaId} AND ativo = true`;
         return rows as unknown as Aluno[];
       }),
-      cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
-        const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      cache.getOrSet(`disciplinas:${escolaId}`, async () => {
+        const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${escolaId}`;
         return rows as unknown as Disciplina[];
       }),
-      cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
-        const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+      cache.getOrSet(`matriz:${escolaId}`, async () => {
+        const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${escolaId}`;
         return rows as unknown as MatrizDisciplina[];
       }),
     ]);
 
     const turmas = await cache.getOrSet(turmasKey, async () => {
       const rows = turmaId
-        ? await db`SELECT * FROM turmas WHERE escola_id = ${ESCOLA_ID} AND id = ${turmaId}`
-        : await db`SELECT * FROM turmas WHERE escola_id = ${ESCOLA_ID}`;
+        ? await db`SELECT * FROM turmas WHERE escola_id = ${escolaId} AND id = ${turmaId}`
+        : await db`SELECT * FROM turmas WHERE escola_id = ${escolaId}`;
       return rows as unknown as Turma[];
     });
 
     const todasNotas = await cache.getOrSet(notasKey, async () => {
       const rows = turmaId
-        ? await db`SELECT * FROM notas WHERE escola_id = ${ESCOLA_ID} AND turma_id = ${turmaId}`
-        : await db`SELECT * FROM notas WHERE escola_id = ${ESCOLA_ID}`;
+        ? await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND turma_id = ${turmaId}`
+        : await db`SELECT * FROM notas WHERE escola_id = ${escolaId}`;
       return rows as unknown as Nota[];
     });
 

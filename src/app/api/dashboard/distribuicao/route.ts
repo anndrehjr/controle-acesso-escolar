@@ -3,6 +3,8 @@ import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildDistribuicaoPedagogica } from "../../../../lib/analytics/buildDistribuicaoPedagogica";
 import { cache } from "../../../../lib/cache";
+import { resolveEscolaAccess, turmasVisiveis } from "../../../../lib/permissions";
+import { capabilitiesFor } from "../../../../types/roles";
 
 import type {
   Aluno,
@@ -24,11 +26,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const podeAcessar =
-      perfil.role === "SUPER_ADMIN" ||
-      (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
-
-    if (!podeAcessar) {
+    const escolaResolvida = resolveEscolaAccess(perfil, escolaId);
+    if (!escolaResolvida) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
@@ -48,7 +47,21 @@ export async function GET(request: Request) {
       return rows as unknown as Nota[];
     });
 
-    const distribuicao = buildDistribuicaoPedagogica({ alunos, notas, turmas });
+    const restringirTurma = !capabilitiesFor(perfil.role).viewAllTurmasDaEscola;
+    const turmasPermitidas = restringirTurma ? await turmasVisiveis(perfil, escolaResolvida) : null;
+    const turmasEscopo = turmasPermitidas ? turmas.filter((t) => turmasPermitidas.includes(t.id)) : turmas;
+    const alunosEscopo = turmasPermitidas
+      ? alunos.filter((a) => turmasPermitidas.includes(a.turma_id as string))
+      : alunos;
+    const notasEscopo = turmasPermitidas
+      ? notas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+      : notas;
+
+    const distribuicao = buildDistribuicaoPedagogica({
+      alunos: alunosEscopo,
+      notas: notasEscopo,
+      turmas: turmasEscopo,
+    });
 
     return NextResponse.json({ data: distribuicao });
   } catch (err) {

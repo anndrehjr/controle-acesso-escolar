@@ -8,11 +8,11 @@ interface LoginResponse {
   }
 }
 
-export async function login(email: string, senha: string): Promise<LoginResponse> {
+export async function login(email: string, senha: string, lembrarAcesso = false): Promise<LoginResponse> {
   const response = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, senha }),
+    body: JSON.stringify({ email, senha, lembrarAcesso }),
   })
 
   if (!response.ok) {

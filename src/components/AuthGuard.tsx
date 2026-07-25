@@ -1,25 +1,19 @@
-
 "use client";
 
 import { ReactNode, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUsuarioAtual } from "../hooks/useUsuarioAtual";
+import { ROLES, type Role } from "../types/roles";
 
 type Props = {
   children: ReactNode;
-  allow?: ("SUPER_ADMIN" | "ADMIN_ESCOLA")[];
+  allow?: Role[];
 };
 
-export default function AuthGuard({
-  children,
-  allow = ["SUPER_ADMIN", "ADMIN_ESCOLA"],
-}: Props) {
+export default function AuthGuard({ children, allow = [...ROLES] }: Props) {
   const router = useRouter();
 
-  const {
-    usuario,
-    loading,
-  } = useUsuarioAtual();
+  const { usuario, loading } = useUsuarioAtual();
 
   useEffect(() => {
     if (loading) return;
@@ -29,7 +23,8 @@ export default function AuthGuard({
       return;
     }
 
-if (!allow.includes(usuario.role as "SUPER_ADMIN" | "ADMIN_ESCOLA")) {      router.push("/login");
+    if (!allow.includes(usuario.role)) {
+      router.push("/login");
     }
   }, [usuario, loading, router, allow]);
 
@@ -45,7 +40,7 @@ if (!allow.includes(usuario.role as "SUPER_ADMIN" | "ADMIN_ESCOLA")) {      rout
     return null;
   }
 
-  if (!allow.includes(usuario.role as "SUPER_ADMIN" | "ADMIN_ESCOLA")) {
+  if (!allow.includes(usuario.role)) {
     return null;
   }
 

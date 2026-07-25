@@ -4,6 +4,8 @@ import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { buildAlertas } from "../../../../lib/analytics/buildAlertas";
 import { cache } from "../../../../lib/cache";
+import { resolveEscolaAccess, turmasVisiveis } from "../../../../lib/permissions";
+import { capabilitiesFor } from "../../../../types/roles";
 
 import type {
   Aluno,
@@ -27,11 +29,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const podeAcessar =
-      perfil.role === "SUPER_ADMIN" ||
-      (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
-
-    if (!podeAcessar) {
+    const escolaResolvida = resolveEscolaAccess(perfil, escolaId);
+    if (!escolaResolvida) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
@@ -42,7 +41,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Escola não encontrada" }, { status: 404 });
     }
 
-    const [turmas, alunos, disciplinas, matriz] = await Promise.all([
+    const [turmasTodas, alunosTodos, disciplinas, matriz] = await Promise.all([
       cache.getOrSet(`turmas:${escolaId}`, async () => {
         const rows = await db`SELECT * FROM turmas WHERE escola_id = ${escolaId}`;
         return rows as unknown as Turma[];
@@ -70,9 +69,19 @@ export async function GET(request: Request) {
     const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
 
     // Filter notes to current bimestre for dashboard calculations
-    const notas = todasNotas.filter(
+    const notasBimestre = todasNotas.filter(
       (n) => Number(n.bimestre) === bimestreAtual && Number(n.ano_letivo) === anoLetivo
     );
+
+    const restringirTurma = !capabilitiesFor(perfil.role).viewAllTurmasDaEscola;
+    const turmasPermitidas = restringirTurma ? await turmasVisiveis(perfil, escolaResolvida) : null;
+    const turmas = turmasPermitidas ? turmasTodas.filter((t) => turmasPermitidas.includes(t.id)) : turmasTodas;
+    const alunos = turmasPermitidas
+      ? alunosTodos.filter((a) => turmasPermitidas.includes(a.turma_id as string))
+      : alunosTodos;
+    const notas = turmasPermitidas
+      ? notasBimestre.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+      : notasBimestre;
 
     const dashboard = buildSchoolDashboard({
       alunos,

@@ -3,6 +3,8 @@ import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
 import { cache } from "../../../../lib/cache";
+import { resolveEscolaAccess, turmasVisiveis } from "../../../../lib/permissions";
+import { capabilitiesFor } from "../../../../types/roles";
 
 import type {
   Aluno,
@@ -25,15 +27,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const podeAcessar =
-      perfil.role === "SUPER_ADMIN" ||
-      (perfil.role === "ADMIN_ESCOLA" && perfil.escola_id === escolaId);
-
-    if (!podeAcessar) {
+    const escolaResolvida = resolveEscolaAccess(perfil, escolaId);
+    if (!escolaResolvida) {
       return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
     }
 
-    const escolaRows = await db`SELECT * FROM escolas WHERE id = ${escolaId} LIMIT 1`;
+    const escolaRows = await db`SELECT * FROM escolas WHERE id = ${escolaResolvida} LIMIT 1`;
     const escola = escolaRows[0];
 
     if (!escola) {
@@ -63,10 +62,21 @@ export async function GET(request: Request) {
       return rows as unknown as Nota[];
     });
 
+    // PROFESSOR só vê as turmas vinculadas a ele; demais papéis com viewAllTurmasDaEscola veem tudo.
+    const restringirTurma = !capabilitiesFor(perfil.role).viewAllTurmasDaEscola;
+    const turmasPermitidas = restringirTurma ? await turmasVisiveis(perfil, escolaResolvida) : null;
+    const turmasEscopo = turmasPermitidas ? turmas.filter((t) => turmasPermitidas.includes(t.id)) : turmas;
+    const alunosEscopo = turmasPermitidas
+      ? alunos.filter((a) => turmasPermitidas.includes(a.turma_id as string))
+      : alunos;
+    const notasEscopo = turmasPermitidas
+      ? notas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+      : notas;
+
     const dashboard = buildSchoolDashboard({
-      alunos,
-      notas,
-      turmas,
+      alunos: alunosEscopo,
+      notas: notasEscopo,
+      turmas: turmasEscopo,
       disciplinas,
       bimestre: bimestreAtual,
       anoLetivo,
