@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 
 type Turma = { id: string; nome: string };
@@ -12,6 +12,7 @@ type Props = {
 
 export default function TurmaSeletor({ turmas, turmaAtualId }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
@@ -23,7 +24,7 @@ export default function TurmaSeletor({ turmas, turmaAtualId }: Props) {
       params.delete("turma");
     }
     startTransition(() => {
-      router.push(`/dashboard?${params.toString()}`);
+      router.push(`${pathname}?${params.toString()}`);
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
 
 type Props = {
@@ -9,11 +9,15 @@ type Props = {
 
 export default function BimestreSeletor({ bimestreAtual }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
   function selecionar(b: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("bimestre", String(b));
     startTransition(() => {
-      router.push(`/dashboard?bimestre=${b}`);
+      router.push(`${pathname}?${params.toString()}`);
     });
   }
 
