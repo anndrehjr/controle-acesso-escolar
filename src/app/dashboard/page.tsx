@@ -17,8 +17,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   // Só o SUPER_ADMIN enxerga este dashboard "genérico"; os demais papéis são sempre
   // escopados à própria escola — sem exceção, mesmo que naveguem direto para /dashboard.
+  // Preserva a query string (turma/tab/bimestre) pra não descartar links antigos ou salvos.
   if (!capabilitiesFor(usuario.role).viewAllEscolas) {
-    redirect(`/dashboard/escolas/${usuario.escola_id}`);
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined) as [string, string][]
+    ).toString();
+    redirect(`/dashboard/escolas/${usuario.escola_id}${qs ? `?${qs}` : ""}`);
   }
 
   const escolaId = params.escola ?? ESCOLA_PADRAO;

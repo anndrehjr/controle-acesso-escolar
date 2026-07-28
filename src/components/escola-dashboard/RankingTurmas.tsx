@@ -12,6 +12,7 @@ type RankingItem = {
 
 type Props = {
   ranking: RankingItem[];
+  basePath: string;
 };
 
 function MediaBar({ media }: { media: number }) {
@@ -38,7 +39,7 @@ const medalStyle = [
   { bg: "bg-orange-700/20 border-orange-700/40 text-orange-400", label: "3º" },
 ];
 
-export default function RankingTurmas({ ranking }: Props) {
+export default function RankingTurmas({ ranking, basePath }: Props) {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
@@ -112,13 +113,13 @@ export default function RankingTurmas({ ranking }: Props) {
 
                   <div className="flex flex-col gap-2">
                     <Link
-                      href={`/dashboard?turma=${item.turma.id}&tab=comparativo`}
+                      href={`${basePath}?turma=${item.turma.id}&tab=comparativo`}
                       className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-xs font-bold text-zinc-300 transition hover:border-white/40 hover:bg-zinc-800 hover:text-white"
                     >
                       B1 × B2
                     </Link>
                     <Link
-                      href={`/dashboard?turma=${item.turma.id}&tab=heatmap`}
+                      href={`${basePath}?turma=${item.turma.id}&tab=heatmap`}
                       className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-xs font-bold text-zinc-300 transition hover:border-indigo-500/40 hover:bg-indigo-950/20 hover:text-indigo-300"
                     >
                       Heatmap

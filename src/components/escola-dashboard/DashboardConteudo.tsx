@@ -171,6 +171,11 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
 
   const semDados = notas.length === 0;
 
+  // SUPER_ADMIN navega em /dashboard; os demais papéis ficam presos a /dashboard/escolas/{id}.
+  // Os links internos (turma, comparativo, heatmap) precisam apontar pro caminho certo,
+  // senão o usuário é redirecionado de volta e perde a seleção.
+  const basePath = capabilitiesFor(usuario.role).viewAllEscolas ? "/dashboard" : `/dashboard/escolas/${escolaId}`;
+
   return (
     <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
       <HeaderEscola
@@ -247,6 +252,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
                 anoLetivo={(escola.ano_letivo as number | undefined) ?? 2026}
               />
               <ListaTurmas
+                basePath={basePath}
                 turmas={dashboard.rankingTurmas.map((r) => ({
                   id: r.turma.id,
                   nome: r.turma.nome,
@@ -259,7 +265,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
         }
         turmas={
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <RankingTurmas ranking={dashboard.rankingTurmas} />
+            <RankingTurmas ranking={dashboard.rankingTurmas} basePath={basePath} />
             <ResumoPedagogico
               alunosAtencao={alertas.atencao.length}
               alunosTransferidos={dashboard.alunosTransferidos.length}

@@ -9,6 +9,7 @@ type Turma = {
 
 type Props = {
   turmas: Turma[];
+  basePath: string;
 };
 
 function StatusBar({ media }: { media: number }) {
@@ -29,7 +30,7 @@ function StatusBar({ media }: { media: number }) {
   );
 }
 
-export default function ListaTurmas({ turmas }: Props) {
+export default function ListaTurmas({ turmas, basePath }: Props) {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
@@ -58,7 +59,7 @@ export default function ListaTurmas({ turmas }: Props) {
           return (
             <Link
               key={turma.id}
-              href={`/dashboard?turma=${turma.id}&tab=heatmap`}
+              href={`${basePath}?turma=${turma.id}&tab=heatmap`}
               className="group rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-lg transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-zinc-900"
             >
               <div className="flex items-start justify-between gap-3">
