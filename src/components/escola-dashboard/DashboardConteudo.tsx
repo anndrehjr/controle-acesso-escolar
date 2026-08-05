@@ -54,9 +54,9 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
 
   if (!escola) {
     return (
-      <main className="min-h-screen bg-zinc-900 p-8 text-white flex items-center justify-center">
+      <main className="min-h-screen p-8 flex items-center justify-center" style={{ background: "var(--bg-app)" }}>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-400">Escola não encontrada</h1>
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--brand-accent-red)" }}>Escola não encontrada</h1>
         </div>
       </main>
     );
@@ -177,7 +177,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
   const basePath = capabilitiesFor(usuario.role).viewAllEscolas ? "/dashboard" : `/dashboard/escolas/${escolaId}`;
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
+    <main className="min-h-screen p-6 md:p-8" style={{ background: "var(--bg-app)" }}>
       <HeaderEscola
         nome={escola.nome as string}
         cidade={(escola.cidade as string | undefined) ?? ""}
@@ -189,7 +189,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
       />
 
       {semDados && (
-        <div className="mt-6 rounded-2xl border border-yellow-900/40 bg-yellow-950/30 px-5 py-4 text-yellow-300 text-sm">
+        <div className="mt-6 p-4 text-sm" style={{ border: "1px solid var(--status-warning-bg)", background: "var(--status-warning-tint)", color: "#7A5800", borderRadius: "var(--radius-sm)" }}>
           Nenhuma nota encontrada para o <strong>{bimestreAlvo}º bimestre</strong>
           {turmaId && " nesta turma"}. Selecione outro bimestre ou importe os dados.
         </div>
