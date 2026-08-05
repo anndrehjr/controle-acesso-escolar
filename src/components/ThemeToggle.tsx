@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("theme") as "dark" | "light" | null;
-    setTheme(saved ?? "dark");
+    const initial = saved ?? "light";
+    setTheme(initial);
+    document.documentElement.setAttribute("data-theme", initial);
   }, []);
 
   function toggle() {
@@ -20,7 +22,6 @@ export function ThemeToggle() {
     localStorage.setItem("theme", next);
   }
 
-  // Evita mismatch de hidratação mostrando somente após mount no cliente
   if (!mounted) return null;
 
   return (
@@ -28,12 +29,37 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
       title={theme === "dark" ? "Tema claro" : "Tema escuro"}
-      className="fixed top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/90 text-zinc-300 shadow-xl backdrop-blur transition duration-300 hover:border-zinc-500 hover:text-white"
+      style={{
+        position: "fixed",
+        top: "12px",
+        right: "12px",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "36px",
+        height: "36px",
+        borderRadius: "var(--radius-sm)",
+        border: "1px solid var(--border-subtle)",
+        background: "var(--bg-card)",
+        color: "var(--text-secondary)",
+        cursor: "pointer",
+        boxShadow: "var(--shadow-card)",
+        transition: "all 0.15s ease",
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--brand-primary)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--brand-primary)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-subtle)";
+      }}
     >
       {theme === "dark" ? (
-        <Sun className="h-4 w-4" aria-hidden />
+        <Sun size={16} aria-hidden />
       ) : (
-        <Moon className="h-4 w-4" aria-hidden />
+        <Moon size={16} aria-hidden />
       )}
     </button>
   );

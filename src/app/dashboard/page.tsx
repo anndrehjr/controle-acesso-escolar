@@ -60,10 +60,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   if (!escola) {
     return (
-      <main className="min-h-screen bg-zinc-900 p-8 text-white flex items-center justify-center">
+      <main className="min-h-screen p-8 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-400">Escola não encontrada</h1>
-          <p className="mt-2 text-zinc-400">
+          <h1
+            className="text-2xl font-semibold"
+            style={{ color: "var(--status-danger-bg)" }}
+          >
+            Escola não encontrada
+          </h1>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
             Verifique NEXT_PUBLIC_ESCOLA_ID no .env.local
           </p>
         </div>
@@ -117,7 +122,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     turmas: turmasParaAnalise,
   });
 
-  // Críticos = 4+ disciplinas < 5,0 · Atenção = 2 ou 3 disciplinas < 5,0
   const alertas = buildAlertas({
     alunos: alunos as Aluno[],
     notas: notas as Nota[],
@@ -164,7 +168,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const semDados = notas.length === 0;
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
+    <main className="min-h-screen p-6 md:p-8">
       <HeaderEscola
         nome={escola.nome as string}
         cidade={(escola.cidade as string | undefined) ?? ""}
@@ -176,7 +180,15 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       />
 
       {semDados && (
-        <div className="mt-6 rounded-2xl border border-yellow-900/40 bg-yellow-950/30 px-5 py-4 text-yellow-300 text-sm">
+        <div
+          className="mt-4 px-5 py-4 text-sm font-medium"
+          style={{
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid #F2B705",
+            background: "#FFF8E1",
+            color: "#7A5800",
+          }}
+        >
           Nenhuma nota encontrada para o <strong>{bimestreAlvo}º bimestre</strong>
           {turmaId && " nesta turma"}.{" "}
           Selecione outro bimestre ou importe os dados.
@@ -192,7 +204,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           turmaId ? <ComparativoBimestres turmaId={turmaId} /> : undefined
         }
         visaoGeral={
-          <div className="space-y-8">
+          <div className="space-y-6">
             <KPICardsReal
               totalAlunos={dashboard.alunosAtivos.length}
               totalTurmas={turmasParaAnalise.length}
