@@ -1,23 +1,43 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { verifyToken } from "./lib/auth"
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { verifyToken, signToken, sessionMaxAgeSeconds } from './lib/auth'
+
+const PUBLIC_API_PREFIXES = ['/api/auth']
 
 export async function middleware(request: NextRequest) {
-  if (process.env.AUTH_ENABLED !== "true") return NextResponse.next()
+  const { pathname } = request.nextUrl
+  const isApi = pathname.startsWith('/api/')
+  const isPublicApi = PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p))
+  const isLoginPage = pathname === '/login'
 
-  const token = request.cookies.get("auth_token")?.value
-  const isLoginPage = request.nextUrl.pathname === "/login"
-  const isApiAuth = request.nextUrl.pathname.startsWith("/api/auth")
+  if (isLoginPage || isPublicApi) return NextResponse.next()
 
-  if (isLoginPage || isApiAuth) return NextResponse.next()
+  const token = request.cookies.get('auth_token')?.value
+  const payload = token ? await verifyToken(token) : null
 
-  if (!token || !(await verifyToken(token))) {
-    return NextResponse.redirect(new URL("/login", request.url))
+  if (!payload) {
+    if (isApi) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    }
+    const loginUrl = new URL('/login', request.url)
+    const res = NextResponse.redirect(loginUrl)
+    res.cookies.delete('auth_token')
+    return res
   }
 
-  return NextResponse.next()
+  const lembrar = payload.lembrar ?? false
+  const refreshed = await signToken(payload, { lembrarAcesso: lembrar })
+  const res = NextResponse.next()
+  res.cookies.set('auth_token', refreshed, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: sessionMaxAgeSeconds(lembrar),
+    path: '/',
+  })
+  return res
 }
 
 export const config = {
-  matcher: ["/analytics/:path*", "/dashboard/:path*", "/api/dashboard/:path*"],
+  matcher: ['/dashboard/:path*', '/api/:path*', '/analytics/:path*'],
 }

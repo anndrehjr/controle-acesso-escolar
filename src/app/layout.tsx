@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import "./globals.css";
 import { NavigationProgressBar } from "../components/NavigationProgressBar";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { TopBar } from "../components/TopBar";
 
 const roboto = Roboto({
   weight: ["400", "500", "600"],
@@ -34,7 +34,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <NavigationProgressBar />
-        <ThemeToggle />
+        <TopBar />
         {children}
       </body>
     </html>

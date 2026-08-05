@@ -22,44 +22,27 @@ export function ThemeToggle() {
     localStorage.setItem("theme", next);
   }
 
-  if (!mounted) return null;
+  // Evita mismatch de hidratação mostrando somente após mount no cliente
+  if (!mounted) return <div className="h-6 w-6" aria-hidden />;
 
   return (
     <button
       onClick={toggle}
       aria-label={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
       title={theme === "dark" ? "Tema claro" : "Tema escuro"}
-      style={{
-        position: "fixed",
-        top: "12px",
-        right: "12px",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "36px",
-        height: "36px",
-        borderRadius: "var(--radius-sm)",
-        border: "1px solid var(--border-subtle)",
-        background: "var(--bg-card)",
-        color: "var(--text-secondary)",
-        cursor: "pointer",
-        boxShadow: "var(--shadow-card)",
-        transition: "all 0.15s ease",
-      }}
-      onMouseEnter={e => {
+      className="flex h-6 w-6 items-center justify-center rounded-full transition"
+      style={{ color: "var(--text-secondary)" }}
+      onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--brand-primary)";
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--brand-primary)";
       }}
-      onMouseLeave={e => {
+      onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--border-subtle)";
       }}
     >
       {theme === "dark" ? (
-        <Sun size={16} aria-hidden />
+        <Sun className="h-3 w-3" aria-hidden />
       ) : (
-        <Moon size={16} aria-hidden />
+        <Moon className="h-3 w-3" aria-hidden />
       )}
     </button>
   );

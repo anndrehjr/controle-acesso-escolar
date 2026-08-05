@@ -12,6 +12,7 @@ type RankingItem = {
 
 type Props = {
   ranking: RankingItem[];
+  basePath: string;
 };
 
 function getMediaColor(media: number): string {
@@ -57,7 +58,7 @@ const medalColors = [
   { bg: "var(--status-danger-tint)", color: "#BF360C", border: "#FF7043" },
 ];
 
-export default function RankingTurmas({ ranking }: Props) {
+export default function RankingTurmas({ ranking, basePath }: Props) {
   return (
     <div
       className="p-6 md:p-8"
@@ -175,7 +176,7 @@ export default function RankingTurmas({ ranking }: Props) {
 
                   <div className="flex flex-col gap-2">
                     <Link
-                      href={`/dashboard?turma=${item.turma.id}&tab=comparativo`}
+                      href={`${basePath}?turma=${item.turma.id}&tab=comparativo`}
                       className="px-3 py-1.5 text-center text-xs font-medium transition"
                       style={{
                         border: "1px solid var(--border-subtle)",
@@ -187,7 +188,7 @@ export default function RankingTurmas({ ranking }: Props) {
                       B1 × B2
                     </Link>
                     <Link
-                      href={`/dashboard?turma=${item.turma.id}&tab=heatmap`}
+                      href={`${basePath}?turma=${item.turma.id}&tab=heatmap`}
                       className="px-3 py-1.5 text-center text-xs font-medium transition"
                       style={{
                         border: "1px solid var(--border-subtle)",

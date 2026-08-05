@@ -9,6 +9,7 @@ type Turma = {
 
 type Props = {
   turmas: Turma[];
+  basePath: string;
 };
 
 function getMediaColor(media: number): string {
@@ -56,7 +57,7 @@ const itemCardStyle: React.CSSProperties = {
   display: "block",
 };
 
-export default function ListaTurmas({ turmas }: Props) {
+export default function ListaTurmas({ turmas, basePath }: Props) {
   return (
     <div
       className="p-6 md:p-8"
@@ -95,7 +96,7 @@ export default function ListaTurmas({ turmas }: Props) {
           return (
             <Link
               key={turma.id}
-              href={`/dashboard?turma=${turma.id}&tab=heatmap`}
+              href={`${basePath}?turma=${turma.id}&tab=heatmap`}
               className="group block transition"
               style={itemCardStyle}
             >
