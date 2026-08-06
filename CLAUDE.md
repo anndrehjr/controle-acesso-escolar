@@ -171,3 +171,30 @@ npm run dev
 ---
 
 *Atualizado em: Junho 2026*
+
+---
+
+## 🔁 Processo de sincronização Dev.andré ↔ Escola.andré
+
+**Regra permanente (desde 05/08/2026):** Dev.andré (`/home/sombra/docker-dev/escola-dev`)
+é o ambiente oficial de desenvolvimento, testes e homologação. Escola.andré
+(`/home/sombra/docker/escola`) é produção.
+
+- Toda funcionalidade nova, correção ou melhoria nasce e é validada no **Dev.andré**
+  primeiro (testes funcionais, de integração e de regressão).
+- Só é promovida para o **Escola.andré** depois de aprovada.
+- Nunca implementar diretamente em produção sem antes validar no dev.
+- Os dois projetos devem permanecer estruturalmente idênticos em funcionalidades,
+  regras de negócio e schema de banco. A única diferença permitida é o Dev.andré
+  conter funcionalidades novas/alteradas ainda em fase de teste, e configuração
+  específica de ambiente (`.env`, URLs, portas, segredos) — nunca lógica de
+  aplicação divergente.
+- Repositório de produção tem um remote local `prod` configurado no dev
+  (`git remote -v` → `prod  /home/sombra/docker/escola`) para facilitar
+  `git fetch prod && git merge prod/main` em sincronizações futuras.
+- Auditoria completa de sincronização em 05/08/2026: trouxe RBAC granular,
+  auditoria real, rate limiting de login e gestão de usuários de 6 commits
+  de produção que o dev não tinha, preservando o redesign visual e o módulo
+  Analytics que estavam em andamento apenas no dev.
+
+*Atualizado em: 05 de agosto de 2026.*
