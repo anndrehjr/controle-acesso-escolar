@@ -99,7 +99,7 @@ export default function KPICardsReal({
       descricao: "Média aritmética de todas as notas lançadas para alunos ativos no recorte selecionado (turma/bimestre/ano). Não é o critério que define aluno crítico — isso depende da quantidade de disciplinas em risco por aluno.",
     },
     {
-      titulo: "Alunos Críticos",
+      titulo: "Alunos Pré-Reprovados",
       valor: alunosCriticos,
       subtitulo: `${alunosAbaixoBasico} abaixo do básico`,
       Icone: AlertTriangle,
@@ -258,7 +258,7 @@ export default function KPICardsReal({
                   Alertas da Turma
                   <InfoTooltip
                     align="start"
-                    texto="Os alunos com as menores médias desta turma, considerando apenas as notas já lançadas. Não é necessariamente a lista de alunos críticos — veja o card Alunos Críticos para esse critério."
+                    texto="Os alunos com as menores médias desta turma, considerando apenas as notas já lançadas. Não é necessariamente a lista de alunos pré-reprovados — veja o card Alunos Pré-Reprovados para esse critério."
                   />
                 </p>
                 <div

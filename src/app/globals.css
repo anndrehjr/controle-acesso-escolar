@@ -17,6 +17,10 @@
 
 /* ── TEMA ESCURO (padrão) ─────────────────────────────── */
 :root {
+  /* Sem isso, controles nativos (select, checkbox, scrollbar) o navegador
+     desenha com o esquema de cores do SO — em vez do tema do app. É a causa
+     raiz de selects mostrando uma seta como um quadrado branco no escuro. */
+  color-scheme: dark;
   --bg-app: #09090b;
   --bg-card: #18181b;
   --bg-card-hover: #1f1f23;
@@ -61,6 +65,7 @@
 
 /* ── TEMA CLARO ───────────────────────────────────────── */
 [data-theme="light"] {
+  color-scheme: light;
   --bg-app: #f4f6fa;
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;

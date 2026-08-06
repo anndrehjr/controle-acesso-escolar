@@ -86,7 +86,7 @@ function TooltipCustom(props: {
       </p>
       <p className="mt-1 text-sm" style={{ color: textSecondary }}>{d.totalNotas} notas</p>
       {d.alunosCriticos > 0 && (
-        <p className="mt-0.5 text-xs text-red-400">{d.alunosCriticos} criticos</p>
+        <p className="mt-0.5 text-xs text-red-400">{d.alunosCriticos} pré-reprovados</p>
       )}
     </div>
   );

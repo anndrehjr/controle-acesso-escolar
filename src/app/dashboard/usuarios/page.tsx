@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
+import StyledSelect from "../../../components/StyledSelect";
 import { useUsuarioAtual } from "../../../hooks/useUsuarioAtual";
 
 type Usuario = {
@@ -174,18 +175,16 @@ function ConteudoUsuarios() {
           onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
           onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         />
-        <select
+        <StyledSelect
           value={novoRole}
           onChange={(e) => setNovoRole(e.target.value)}
-          className="p-2 text-sm outline-none transition sm:col-span-1"
+          className="p-2 text-sm sm:col-span-1"
           style={inputStyle}
-          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
-          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         >
           <option value="PROFESSOR">Professor</option>
           <option value="LEITOR">Somente leitura</option>
           {capacidades?.viewAllEscolas && <option value="ADMIN_ESCOLA">Coordenador</option>}
-        </select>
+        </StyledSelect>
         <button
           type="submit"
           disabled={criando}

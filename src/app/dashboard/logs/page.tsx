@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
+import StyledSelect from "../../../components/StyledSelect";
 
 type LogEntry = {
   id: string;
@@ -70,13 +71,11 @@ function ConteudoLogs() {
           onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
           onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         />
-        <select
+        <StyledSelect
           value={filtroAcao}
           onChange={(e) => setFiltroAcao(e.target.value)}
-          className="p-2 text-sm outline-none transition"
+          className="p-2 text-sm"
           style={inputStyle}
-          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
-          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         >
           <option value="">Todas as ações</option>
           <option value="LOGIN_SUCESSO">Login com sucesso</option>
@@ -85,7 +84,7 @@ function ConteudoLogs() {
           <option value="LOGOUT">Logout</option>
           <option value="USUARIO_CRIADO">Usuário criado</option>
           <option value="SENHA_REDEFINIDA">Senha redefinida</option>
-        </select>
+        </StyledSelect>
         <button
           type="submit"
           className="px-4 py-2 text-sm font-semibold transition"

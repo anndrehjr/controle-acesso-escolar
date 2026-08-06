@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useTransition } from "react";
+import StyledSelect from "../StyledSelect";
 
 type Turma = { id: string; nome: string };
 
@@ -36,16 +37,11 @@ export default function TurmaSeletor({ turmas, turmaAtualId }: Props) {
       >
         Turma
       </span>
-      <select
+      <StyledSelect
         value={turmaAtualId ?? ""}
         onChange={(e) => selecionar(e.target.value)}
         disabled={pending}
-        className="rounded-2xl border px-4 py-2 text-sm font-bold outline-none transition disabled:opacity-50"
-        style={{
-          background: "var(--bg-app)",
-          color: "var(--text-primary)",
-          borderColor: "var(--border-subtle)",
-        }}
+        className="rounded-2xl py-2 pl-4 text-sm font-bold"
       >
         <option value="">Todas</option>
         {turmas.map((t) => (
@@ -53,7 +49,7 @@ export default function TurmaSeletor({ turmas, turmaAtualId }: Props) {
             {t.nome}
           </option>
         ))}
-      </select>
+      </StyledSelect>
     </div>
   );
 }

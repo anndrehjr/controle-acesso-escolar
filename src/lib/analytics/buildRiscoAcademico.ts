@@ -1,4 +1,5 @@
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "./types";
+import { avaliarDisciplina, LIMITE_PRE_REPROVADO } from "./avaliarDisciplina";
 
 // Fallback: infer grupo_pedagogico from turma name when the field is null/empty
 function inferirGrupo(nome: string): string {
@@ -7,10 +8,6 @@ function inferirGrupo(nome: string): string {
   if (n.includes("ano") || n.includes("fundamental")) return "EF";
   return "";
 }
-
-const TOTAL_BIMESTRES = 4;
-const SOMA_APROVACAO = 20; // soma dos 4 bimestres necessária para aprovar direto (equivale a média 5)
-const MARGEM_CONSELHO = 3; // pontos faltando para 20, no fechamento do 4º bimestre, que ainda vão a conselho em vez de reprovar direto
 
 export type DisciplinaRiscoItem = {
   disciplinaId: string;
@@ -30,7 +27,7 @@ export type AlunoRiscoItem = {
   turmaNome: string;
   mediaGeral: number | null;
   totalDisciplinasRisco: number;
-  /** 3+ disciplinas em pré-reprovado/conselho simultaneamente */
+  /** 3+ disciplinas em pré-reprovado/conselho simultaneamente (rótulo na UI: "Pré-Reprovado") */
   status: "critico" | "atencao";
   disciplinas: DisciplinaRiscoItem[];
 };
@@ -51,10 +48,10 @@ type Params = {
  * escola: só quando as 4 notas daquela disciplina já foram lançadas para aquele aluno é que
  * fazemos a conta final (soma < 20 → reprovado, ou conselho se ficou perto). Enquanto a
  * disciplina ainda não tem os 4 lançamentos, o risco é por ritmo: "pré-reprovado" quando a
- * média atual (soma lançada ÷ bimestres lançados) está abaixo de 5.
+ * média atual (soma lançada ÷ bimestres lançados) está abaixo de 5. Ver avaliarDisciplina().
  *
- * Por aluno — 3 ou mais disciplinas em risco ao mesmo tempo = "crítico" (é esse aluno que vai
- * para o conselho de classe). 1 ou 2 disciplinas = "atenção". 0 = não aparece.
+ * Por aluno — 3 ou mais disciplinas em risco ao mesmo tempo = "crítico" (rótulo "Pré-Reprovado"
+ * na interface — é esse aluno que vai para o conselho de classe). 1 ou 2 disciplinas = "atenção".
  */
 export function buildRiscoAcademico({
   alunos,
@@ -105,31 +102,16 @@ export function buildRiscoAcademico({
 
       if (notasDaDisciplina.length === 0) continue;
 
-      const soma = notasDaDisciplina.reduce((acc, n) => acc + n, 0);
-      const bimestresLancados = notasDaDisciplina.length;
-      const mediaAtual = soma / bimestresLancados;
-      mediasValidas.push(mediaAtual);
+      const avaliacao = avaliarDisciplina(notasDaDisciplina);
+      if (avaliacao.media !== null) mediasValidas.push(avaliacao.media);
 
-      let emRisco = false;
-      let emConselho = false;
-
-      if (bimestresLancados >= TOTAL_BIMESTRES) {
-        // as 4 notas dessa disciplina já existem — dá pra fechar de verdade, não é mais projeção
-        if (soma < SOMA_APROVACAO) {
-          emRisco = true;
-          if (soma >= SOMA_APROVACAO - MARGEM_CONSELHO) emConselho = true;
-        }
-      } else if (mediaAtual < 5) {
-        emRisco = true;
-      }
-
-      if (emRisco) {
+      if (avaliacao.emRisco) {
         disciplinasRisco.push({
           disciplinaId: disciplina.id,
           disciplinaNome: disciplina.nome,
           codigo: disciplina.codigo,
-          nota: Number(mediaAtual.toFixed(2)),
-          emConselho,
+          nota: Number((avaliacao.media as number).toFixed(2)),
+          emConselho: avaliacao.emConselho,
         });
       }
     }
@@ -150,11 +132,12 @@ export function buildRiscoAcademico({
       turmaNome: turma.nome,
       mediaGeral,
       totalDisciplinasRisco: count,
-      status: count >= 3 ? "critico" : "atencao",
+      // count >= 1 aqui (senão já teria dado "continue" acima), então nunca é "ok"
+      status: count >= LIMITE_PRE_REPROVADO ? "critico" : "atencao",
       disciplinas: disciplinasRisco.sort((a, b) => a.nota - b.nota),
     };
 
-    if (count >= 3) {
+    if (count >= LIMITE_PRE_REPROVADO) {
       criticos.push(item);
     } else {
       atencao.push(item);

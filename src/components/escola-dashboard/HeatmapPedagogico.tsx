@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import InfoTooltip from "../InfoTooltip";
+import StyledSelect from "../StyledSelect";
 
 type HeatmapData = {
   turmaId: string;
@@ -20,6 +21,8 @@ type HeatmapData = {
     numeroChamada: number;
     emAtencao: boolean;
     media: number | null;
+    /** 3+ disciplinas em risco pela média acumulada do ano (mesma regra do dashboard/alertas) */
+    preReprovado?: boolean;
     disciplinas: {
       disciplinaId: string;
       disciplinaNome: string;
@@ -224,22 +227,17 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
             )}
           </button>
 
-          <select
+          <StyledSelect
             value={turmaAtual.turmaId}
             onChange={(e) => setTurmaSelecionada(e.target.value)}
-            className="rounded-2xl border px-4 py-3 text-sm font-bold outline-none transition"
-            style={{
-              borderColor: "var(--border-subtle)",
-              background: "var(--bg-app)",
-              color: "var(--text-primary)",
-            }}
+            className="rounded-2xl py-3 pl-4 text-sm font-bold"
           >
             {data.map((turma) => (
               <option key={turma.turmaId} value={turma.turmaId}>
                 {turma.turmaNome}
               </option>
             ))}
-          </select>
+          </StyledSelect>
         </div>
       </div>
 
@@ -310,20 +308,22 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
                         }
                   }
                 >
-                  {aluno.emAtencao && (
-                    <span className="text-red-400">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={aluno.emAtencao ? "text-red-400" : undefined}>
                       {mostrarNomes
                         ? aluno.nome
                         : `N ${String(aluno.numeroChamada).padStart(2, "0")}`}
                     </span>
-                  )}
-                  {!aluno.emAtencao && (
-                    <>
-                      {mostrarNomes
-                        ? aluno.nome
-                        : `N ${String(aluno.numeroChamada).padStart(2, "0")}`}
-                    </>
-                  )}
+                    {aluno.preReprovado && (
+                      <span
+                        title="Pré-Reprovado: 3 ou mais disciplinas em risco pela média acumulada do ano"
+                        className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                        style={{ background: "var(--status-danger-bg)", color: "#FFFFFF" }}
+                      >
+                        PR
+                      </span>
+                    )}
+                  </span>
                 </td>
                 {aluno.disciplinas.map((d) => (
                   <td

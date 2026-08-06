@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createPortal } from "react-dom"
+import StyledSelect from "../StyledSelect"
 
 export type DisciplinaAlerta = {
   disciplinaId: string
@@ -125,7 +126,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               Painel de Alertas
             </h2>
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Risco anual · 3+ disciplinas pré-reprovadas (Crítico) · 1–2 disciplinas pré-reprovadas (Atenção)
+              Risco anual · 3+ disciplinas pré-reprovadas (Pré-Reprovado) · 1–2 disciplinas pré-reprovadas (Atenção)
             </p>
           </div>
         </div>
@@ -151,7 +152,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
                 className="text-xs font-semibold uppercase tracking-wider"
                 style={{ color: "var(--status-danger-bg)" }}
               >
-                Crítico
+                Pré-Reprovado
               </span>
             </div>
             <p
@@ -259,36 +260,36 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
                   color: filtro === f ? "#FFFFFF" : "var(--text-secondary)",
                 }}
               >
-                {f === "todos" ? "Todos" : f === "critico" ? "Críticos" : "Atenção"}
+                {f === "todos" ? "Todos" : f === "critico" ? "Pré-Reprovados" : "Atenção"}
               </button>
             ))}
           </div>
 
           {turmas.length > 0 && (
-            <select
+            <StyledSelect
               value={turmaFiltro}
               onChange={e => setTurmaFiltro(e.target.value)}
-              className="py-2.5 px-3 text-sm transition cursor-pointer"
+              className="py-2.5 pl-3 text-sm"
               style={inputStyle}
             >
               <option value="">Todas as turmas</option>
               {turmas.map(t => (
                 <option key={t.id} value={t.id}>{t.nome}</option>
               ))}
-            </select>
+            </StyledSelect>
           )}
 
-          <select
+          <StyledSelect
             value={ordenacao}
             onChange={e => setOrdenacao(e.target.value as Ordenacao)}
-            className="py-2.5 px-3 text-sm transition cursor-pointer"
+            className="py-2.5 pl-3 text-sm"
             style={inputStyle}
           >
             <option value="risco">Maior risco primeiro</option>
             <option value="media_asc">Menor média primeiro</option>
             <option value="media_desc">Maior média primeiro</option>
             <option value="nome">Nome A–Z</option>
-          </select>
+          </StyledSelect>
         </div>
 
         {/* Count */}
@@ -427,11 +428,11 @@ function StudentCard({
             color: "#FFFFFF",
           }}
         >
-          {isCritico ? "Crítico" : "Atenção"}
+          {isCritico ? "Pré-Reprovado" : "Atenção"}
         </span>
       </div>
 
-      {/* Disciplinas em risco — é essa contagem que define Crítico/Atenção, não a média geral */}
+      {/* Disciplinas em risco — é essa contagem que define Pré-Reprovado/Atenção, não a média geral */}
       <div
         className="mb-4 px-4 py-3"
         style={{
@@ -535,7 +536,7 @@ function DrawerContent({
             color: "#FFFFFF",
           }}
         >
-          {isCritico ? "Crítico" : "Ponto de Atenção"}
+          {isCritico ? "Pré-Reprovado" : "Ponto de Atenção"}
         </span>
       </div>
 
@@ -574,7 +575,7 @@ function DrawerContent({
             </span>
           </div>
           <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
-            É essa contagem — não a média geral — que define o status do aluno: 3+ é Crítico, 1–2 é Atenção.
+            É essa contagem — não a média geral — que define o status do aluno: 3+ é Pré-Reprovado, 1–2 é Atenção.
           </p>
         </div>
       </div>

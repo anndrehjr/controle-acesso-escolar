@@ -312,7 +312,7 @@ export default function ComparativoBimestres({ turmaId, escolaId }: Props) {
               }
             />
             <KPICard
-              titulo="Alunos Críticos"
+              titulo="Alunos Pré-Reprovados"
               b1={b1.temDados ? String(b1.alunosCriticos) : "—"}
               b2={b2.temDados ? String(b2.alunosCriticos) : "—"}
               delta={

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle } from "lucide-react";
 import { cache } from "../../../../lib/cache";
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../../../lib/analytics/types";
+import { avaliarDisciplina, statusAlunoPorRisco } from "../../../../lib/analytics/avaliarDisciplina";
+import InfoTooltip from "../../../../components/InfoTooltip";
 
 const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
@@ -136,11 +138,12 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
       return nota?.nota !== null && nota?.nota !== undefined ? Number(nota.nota) : null;
     });
 
-    const notasValidas = notasBim.filter((n): n is number => n !== null);
-    const media =
-      notasValidas.length > 0
-        ? notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length
-        : null;
+    // Sempre a média acumulada dos bimestres já lançados — nunca a nota de um
+    // bimestre isolado. avaliarDisciplina() é o mesmo serviço usado no
+    // dashboard/alertas, garante que "em risco" significa a mesma coisa em
+    // toda a tela.
+    const avaliacao = avaliarDisciplina(notasBim);
+    const media = avaliacao.media;
 
     const idxComDados = notasBim
       .map((n, i) => (n !== null ? i : -1))
@@ -152,7 +155,7 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
       tendencia = Number((ultimo - penultimo).toFixed(1));
     }
 
-    return { disc, notasBim, media, tendencia };
+    return { disc, notasBim, media, tendencia, emRisco: avaliacao.emRisco, emConselho: avaliacao.emConselho };
   });
 
   const mediasValidas = tabelaDisciplinas
@@ -166,18 +169,12 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
 
   const nivelGeral = mediaGeral !== null ? getNivel(mediaGeral) : null;
 
-  const notasBimestreAtual = notasPorBimestre.find((g) => g.bimestre === bimestreAtual)?.notas ?? [];
-  const disciplinasAbaixo5 = disciplinasDaTurma.filter((disc) => {
-    const nota = notasBimestreAtual.find(
-      (n) => String(n.disciplina_id).trim() === String(disc.id).trim()
-    );
-    return nota?.nota !== null && nota?.nota !== undefined && Number(nota.nota) < 5;
-  }).length;
-
-  const alertaStatus =
-    disciplinasAbaixo5 >= 4 ? "critico" :
-    disciplinasAbaixo5 >= 2 ? "atencao" :
-    "ok";
+  // Disciplinas em risco = média acumulada < 5,0 (nunca a nota de um bimestre
+  // isolado) — mesmo critério e mesmo limiar (3+ = pré-reprovado) usados em
+  // buildRiscoAcademico(), pra não haver dois números diferentes pro mesmo aluno
+  // em telas diferentes.
+  const disciplinasAbaixo5 = tabelaDisciplinas.filter((d) => d.emRisco).length;
+  const alertaStatus = statusAlunoPorRisco(disciplinasAbaixo5);
 
   const totalBimestresComDados = bimestres.filter((b) =>
     notasPorBimestre.find((g) => g.bimestre === b)?.notas.length
@@ -284,7 +281,7 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                   background:
                     disciplinasAbaixo5 === 0
                       ? "var(--status-success-tint)"
-                      : disciplinasAbaixo5 < 4
+                      : disciplinasAbaixo5 < 3
                       ? "var(--status-warning-tint)"
                       : "var(--status-danger-tint)",
                 }}
@@ -295,7 +292,7 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                     color:
                       disciplinasAbaixo5 === 0
                         ? "var(--status-success-bg)"
-                        : disciplinasAbaixo5 < 4
+                        : disciplinasAbaixo5 < 3
                         ? "#E8860C"
                         : "var(--status-danger-bg)",
                     fontWeight: 600,
@@ -305,6 +302,9 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                 </span>
                 <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
                   {disciplinasAbaixo5 === 1 ? "disciplina" : "disciplinas"} em risco
+                </p>
+                <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
+                  pela média acumulada · 3+ é Pré-Reprovado
                 </p>
               </div>
 
@@ -347,13 +347,13 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                     }}
                   >
                     {alertaStatus === "critico"
-                      ? "Crítico"
+                      ? "Pré-Reprovado"
                       : alertaStatus === "atencao"
                       ? "Atenção"
                       : "Regular"}
                   </p>
                   <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    {bimestreAtual}º bimestre
+                    acompanhando o {bimestreAtual}º bimestre
                   </p>
                 </div>
               </div>
@@ -412,18 +412,10 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                       }}
                     >
                       {b}º Bim
-                      {b === bimestreAtual && (
-                        <span
-                          className="ml-1 text-[9px] font-normal"
-                          style={{ color: "var(--brand-primary)", opacity: 0.7 }}
-                        >
-                          (atual)
-                        </span>
-                      )}
                     </th>
                   ))}
                   <th
-                    className="min-w-[80px] p-3 text-center"
+                    className="min-w-[100px] p-3 text-center"
                     style={{
                       border: "1px solid var(--border-subtle)",
                       background: "var(--bg-app)",
@@ -431,7 +423,13 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
                       fontWeight: 600,
                     }}
                   >
-                    Média
+                    <span className="inline-flex items-center justify-center gap-1">
+                      Média Atual
+                      <InfoTooltip
+                        align="end"
+                        texto="Média acumulada de todos os bimestres já lançados dessa disciplina — nunca a nota de um bimestre isolado. É essa média que define se a disciplina está em risco (abaixo de 5,0)."
+                      />
+                    </span>
                   </th>
                   <th
                     className="min-w-[90px] p-3 text-center"

@@ -2,9 +2,45 @@ import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
+import { avaliarDisciplina, LIMITE_PRE_REPROVADO } from "../../../../lib/analytics/avaliarDisciplina";
 import { cache } from "../../../../lib/cache";
 import { resolveEscolaAccess, podeVerTurma } from "../../../../lib/permissions";
 import type { Aluno, Disciplina, Nota, Turma } from "../../../../lib/analytics/types";
+
+/**
+ * Quantos alunos têm 3+ disciplinas em risco NESSE bimestre isoladamente
+ * (é um snapshot de comparação — cada bimestre é avaliado com os dados só
+ * dele). Mesma regra central de avaliarDisciplina()/LIMITE_PRE_REPROVADO
+ * usada em todo o resto do sistema — só muda o recorte de tempo, que aqui é
+ * intencionalmente um bimestre por vez, não a média acumulada do ano.
+ */
+function contarAlunosPreReprovados(alunos: Aluno[], notas: Nota[]): number {
+  const notasPorAluno = new Map<string, Nota[]>();
+  for (const n of notas) {
+    if (n.nota == null) continue;
+    if (!notasPorAluno.has(n.aluno_id)) notasPorAluno.set(n.aluno_id, []);
+    notasPorAluno.get(n.aluno_id)!.push(n);
+  }
+
+  let total = 0;
+  for (const aluno of alunos) {
+    const notasDoAluno = notasPorAluno.get(aluno.id) ?? [];
+    const porDisciplina = new Map<string, number[]>();
+    for (const n of notasDoAluno) {
+      const key = String(n.disciplina_id);
+      if (!porDisciplina.has(key)) porDisciplina.set(key, []);
+      porDisciplina.get(key)!.push(Number(n.nota));
+    }
+
+    let disciplinasRisco = 0;
+    for (const notasDaDisciplina of porDisciplina.values()) {
+      if (avaliarDisciplina(notasDaDisciplina).emRisco) disciplinasRisco++;
+    }
+
+    if (disciplinasRisco >= LIMITE_PRE_REPROVADO) total++;
+  }
+  return total;
+}
 
 export async function GET(request: Request) {
   try {
@@ -87,7 +123,7 @@ export async function GET(request: Request) {
         temDados: notas.length > 0,
         mediaGeral: dashboard.mediaGeral,
         totalAlunos: dashboard.alunosAtivos.length,
-        alunosCriticos: dashboard.alunosCriticos.length,
+        alunosCriticos: contarAlunosPreReprovados(alunos, notas),
         percentualAdequado: dashboard.percentualAdequado,
         disciplinas: dashboard.disciplinasCriticasGeral.map((d) => ({
           id: d.disciplina.id,

@@ -78,7 +78,7 @@ export default function ResumoCards({
       <div className="rounded-2xl border p-5" style={base}>
         <div className="flex items-center justify-between mb-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
-            Alunos Criticos
+            Alunos Pré-Reprovados
             <InfoTooltip align="start" texto="Alunos com 3 ou mais disciplinas em risco (média abaixo de 5, ou soma insuficiente no fechamento do 4º bimestre). É esse aluno que vai a conselho de classe." />
           </p>
           <AlertTriangle className="h-5 w-5" style={{ color: alunosCriticos > 0 ? "#ef4444" : "#22c55e" }} />
