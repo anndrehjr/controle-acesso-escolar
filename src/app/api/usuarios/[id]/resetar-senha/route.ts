@@ -4,6 +4,7 @@ import { checkApiAuth } from "../../../../../lib/auth";
 import db from "../../../../../lib/db";
 import { capabilitiesFor, isRole } from "../../../../../types/roles";
 import { registrarAuditoria } from "../../../../../lib/audit";
+import { verificarLimiteAcao, registrarAcao, ipDaRequisicao } from "../../../../../lib/rateLimit";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const perfil = await checkApiAuth(request);
@@ -13,6 +14,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!capabilitiesFor(perfil.role).manageUsuarios) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
   }
+
+  // Limite de ações (F-06 da auditoria): no máximo 5 resets em 15 min por conta admin (e-mail
+  // de quem está agindo) ou por IP — TODA tentativa conta, não só falha, já que o risco aqui é
+  // uma conta admin comprometida resetando senhas em sequência, não alguém "adivinhando".
+  const ip = ipDaRequisicao(request);
+  const limite = await verificarLimiteAcao(perfil.email, ip);
+  if (limite.bloqueado) {
+    await registrarAuditoria({
+      usuario: perfil,
+      acao: "RESET_SENHA_BLOQUEADO",
+      tela: "/dashboard/usuarios",
+      req: request,
+      sucesso: false,
+    });
+    return NextResponse.json(
+      { error: `Muitos resets de senha em pouco tempo. Tente novamente em ${limite.minutosParaLiberar} minutos.` },
+      { status: 429 }
+    );
+  }
+  await registrarAcao(perfil.email, ip);
 
   const { id } = await params;
   const body = (await request.json()) as { novaSenha?: string };

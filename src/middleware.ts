@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyToken, signToken, sessionMaxAgeSeconds } from './lib/auth'
+export const runtime = 'nodejs'
 
 const PUBLIC_API_PREFIXES = ['/api/auth']
 
