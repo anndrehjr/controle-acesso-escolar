@@ -185,7 +185,7 @@ export default function LoginPage() {
               disabled={carregando}
               className="mt-2 flex w-full items-center justify-center gap-2 p-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
               style={{
-                background: "var(--brand-primary)",
+                background: "var(--brand-primary-solid)",
                 color: "#FFFFFF",
                 borderRadius: "var(--radius-sm)",
                 fontWeight: "var(--font-weight-semibold)",
@@ -200,7 +200,7 @@ export default function LoginPage() {
               onMouseLeave={(e) => {
                 if (!carregando)
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    "var(--brand-primary)";
+                    "var(--brand-primary-solid)";
               }}
             >
               {carregando && <Loader2 className="h-4 w-4 animate-spin" />}

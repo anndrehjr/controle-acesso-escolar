@@ -191,14 +191,14 @@ function ConteudoUsuarios() {
           className="p-2 text-sm font-semibold transition disabled:opacity-50"
           style={{
             borderRadius: "var(--radius-sm)",
-            background: "var(--brand-primary)",
+            background: "var(--brand-primary-solid)",
             color: "var(--status-text-on-color)",
           }}
           onMouseEnter={(e) => {
             if (!criando) (e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-hover)";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary)";
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-solid)";
           }}
         >
           {criando ? "Criando..." : "Criar usuário"}
@@ -271,7 +271,7 @@ function ConteudoUsuarios() {
                           className="px-2.5 py-1.5 text-xs font-semibold transition"
                           style={{
                             borderRadius: "var(--radius-sm)",
-                            background: "var(--brand-primary)",
+                            background: "var(--brand-primary-solid)",
                             color: "var(--status-text-on-color)",
                           }}
                         >

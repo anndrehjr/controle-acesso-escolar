@@ -383,6 +383,10 @@ function StudentCard({
   const isCritico = aluno.status === "critico"
   const statusColor = isCritico ? "var(--status-danger-bg)" : "#E8860C"
   const statusBg = isCritico ? "var(--status-danger-tint)" : "var(--status-warning-tint)"
+  // Fundo sólido + texto em cima (badge/pill) precisa de mais contraste que texto-sobre-tint —
+  // ver auditoria WCAG nos tokens "-solid" do globals.css.
+  const statusSolidBg = isCritico ? "var(--status-danger-solid)" : "var(--status-warning-solid-bg)"
+  const statusTextOnSolid = isCritico ? "#FFFFFF" : "var(--status-warning-solid-text)"
 
   return (
     <button
@@ -424,8 +428,8 @@ function StudentCard({
           className="shrink-0 inline-flex items-center px-2.5 py-1 text-xs font-semibold"
           style={{
             borderRadius: "var(--radius-pill)",
-            background: statusColor,
-            color: "#FFFFFF",
+            background: statusSolidBg,
+            color: statusTextOnSolid,
           }}
         >
           {isCritico ? "Pré-Reprovado" : "Atenção"}
@@ -508,6 +512,8 @@ function DrawerContent({
 }) {
   const isCritico = aluno.status === "critico"
   const statusColor = isCritico ? "var(--status-danger-bg)" : "#E8860C"
+  const statusSolidBg = isCritico ? "var(--status-danger-solid)" : "var(--status-warning-solid-bg)"
+  const statusTextOnSolid = isCritico ? "#FFFFFF" : "var(--status-warning-solid-text)"
 
   return (
     <div className="p-6 pb-10">
@@ -532,8 +538,8 @@ function DrawerContent({
           className="px-3 py-1 text-xs font-semibold"
           style={{
             borderRadius: "var(--radius-pill)",
-            background: statusColor,
-            color: "#FFFFFF",
+            background: statusSolidBg,
+            color: statusTextOnSolid,
           }}
         >
           {isCritico ? "Pré-Reprovado" : "Ponto de Atenção"}

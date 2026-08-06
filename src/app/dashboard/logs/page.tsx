@@ -88,9 +88,9 @@ function ConteudoLogs() {
         <button
           type="submit"
           className="px-4 py-2 text-sm font-semibold transition"
-          style={{ borderRadius: "var(--radius-sm)", background: "var(--brand-primary)", color: "var(--status-text-on-color)" }}
+          style={{ borderRadius: "var(--radius-sm)", background: "var(--brand-primary-solid)", color: "var(--status-text-on-color)" }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-hover)")}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary)")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-solid)")}
         >
           Filtrar
         </button>

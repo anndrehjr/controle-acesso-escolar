@@ -75,7 +75,7 @@ export default function AnalyticsHeaderNav({ nome, cidade, estado, bimestre, ano
           <Link
             href="/dashboard"
             className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-            style={{ background: "var(--brand-primary)", borderRadius: "var(--radius-sm)", color: "#fff" }}
+            style={{ background: "var(--brand-primary-solid)", borderRadius: "var(--radius-sm)", color: "#fff" }}
           >
             <LayoutDashboard className="h-4 w-4" />
             Dashboard detalhado

@@ -318,7 +318,7 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
                       <span
                         title="Pré-Reprovado: 3 ou mais disciplinas em risco pela média acumulada do ano"
                         className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
-                        style={{ background: "var(--status-danger-bg)", color: "#FFFFFF" }}
+                        style={{ background: "var(--status-danger-solid)", color: "#FFFFFF" }}
                       >
                         PR
                       </span>
