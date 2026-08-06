@@ -1,4 +1,5 @@
 import Link from "next/link";
+import InfoTooltip from "../InfoTooltip";
 
 type RankingItem = {
   turma: {
@@ -82,10 +83,14 @@ export default function RankingTurmas({ ranking, basePath }: Props) {
           Desempenho por turma
         </div>
         <h2
-          className="text-lg tracking-tight"
+          className="flex items-center gap-1.5 text-lg tracking-tight"
           style={{ color: "var(--text-primary)", fontWeight: 600 }}
         >
           Ranking de Turmas
+          <InfoTooltip
+            align="start"
+            texto="Turmas ordenadas pela média geral de todas as notas lançadas no recorte selecionado. A linha vertical na barra marca 5,0 — a referência mínima de aprovação por bimestre."
+          />
         </h2>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Classificação por média geral · linha central = 5,0

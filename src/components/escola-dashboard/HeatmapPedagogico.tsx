@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import InfoTooltip from "../InfoTooltip";
 
 type HeatmapData = {
   turmaId: string;
@@ -185,8 +186,12 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
           >
             Mapa de desempenho
           </div>
-          <h2 className="text-2xl font-black tracking-tight md:text-3xl">
+          <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight md:text-3xl">
             Heatmap Pedagogico
+            <InfoTooltip
+              align="start"
+              texto="Cada célula é a nota de um aluno numa disciplina, no bimestre selecionado. A cor segue a faixa de desempenho (veja a legenda abaixo). Células vazias indicam nota ainda não lançada."
+            />
           </h2>
           <p
             className="mt-2 text-sm leading-relaxed md:text-base"

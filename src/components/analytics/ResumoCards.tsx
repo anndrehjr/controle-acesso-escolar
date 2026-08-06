@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown, Users, AlertTriangle, BookOpen, Award, Target } from "lucide-react";
+import InfoTooltip from "../InfoTooltip";
 
 type Props = {
   mediaGeral: number;
@@ -53,7 +54,10 @@ export default function ResumoCards({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="rounded-2xl border p-5" style={base}>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Media Geral</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+            Media Geral
+            <InfoTooltip align="start" texto="Média aritmética de todas as notas lançadas no bimestre selecionado. Não é o critério que define aluno crítico." />
+          </p>
           <Target className="h-5 w-5" style={{ color: corMedia(mediaGeral) }} />
         </div>
         <p className="text-4xl font-black" style={{ color: corMedia(mediaGeral) }}>{mediaGeral.toFixed(1)}</p>
@@ -73,11 +77,14 @@ export default function ResumoCards({
 
       <div className="rounded-2xl border p-5" style={base}>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Alunos Criticos</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+            Alunos Criticos
+            <InfoTooltip align="start" texto="Alunos com 3 ou mais disciplinas em risco (média abaixo de 5, ou soma insuficiente no fechamento do 4º bimestre). É esse aluno que vai a conselho de classe." />
+          </p>
           <AlertTriangle className="h-5 w-5" style={{ color: alunosCriticos > 0 ? "#ef4444" : "#22c55e" }} />
         </div>
         <p className="text-4xl font-black" style={{ color: alunosCriticos > 0 ? "#ef4444" : "#22c55e" }}>{alunosCriticos}</p>
-        <p className="mt-1 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>4+ disciplinas abaixo de 5,0</p>
+        <p className="mt-1 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>3+ disciplinas em risco</p>
         <p className="mt-3 text-xs pt-3" style={{ color: "var(--text-secondary)", ...sep }}>
           {alunosCriticos === 0 ? "Nenhum em estado critico" : "Necessitam intervencao"}
         </p>
@@ -85,11 +92,14 @@ export default function ResumoCards({
 
       <div className="rounded-2xl border p-5" style={base}>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Zona de Atencao</p>
+          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
+            Zona de Atencao
+            <InfoTooltip align="start" texto="Alunos com 1 ou 2 disciplinas em risco — abaixo do limite de 3 que caracteriza situação crítica, mas que já merecem acompanhamento." />
+          </p>
           <TrendingDown className="h-5 w-5" style={{ color: "#eab308" }} />
         </div>
         <p className="text-4xl font-black" style={{ color: "#eab308" }}>{alunosAtencao}</p>
-        <p className="mt-1 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>2-3 disciplinas abaixo de 5,0</p>
+        <p className="mt-1 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>1-2 disciplinas em risco</p>
         <p className="mt-3 text-xs pt-3" style={{ color: "var(--text-secondary)", ...sep }}>Acompanhamento pedagogico</p>
       </div>
 
