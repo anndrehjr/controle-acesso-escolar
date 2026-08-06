@@ -129,7 +129,15 @@ export default async function AnalyticsPage() {
 
       <ResumoCards executivo={executivo} totalAlunos={totalAlunos} />
 
-      <TendenciaBimestres />
+      {/*
+        escolaId é obrigatório aqui: sem ele, resolveEscolaAccess() cai no fallback
+        user.escola_id — que é null pra quem tem viewAllEscolas (Dev Master, Administrador
+        Multi-Escolas), causando "Sem permissão" só pra esses perfis (achado real: o mesmo
+        card funcionava pro Coordenador, que tem escola_id próprio, e quebrava pro
+        Administrador Multi-Escolas). Todo o resto desta página já usa ESCOLA_ID (o env var),
+        então este card também precisa.
+      */}
+      <TendenciaBimestres escolaId={ESCOLA_ID} />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <TabelaComparativa
