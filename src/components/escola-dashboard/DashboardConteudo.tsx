@@ -19,7 +19,7 @@ import PainelAlertas from "./PainelAlertas";
 
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
 import { buildDistribuicaoPedagogica } from "../../lib/analytics/buildDistribuicaoPedagogica";
-import { buildAlertas } from "../../lib/analytics/buildAlertas";
+import { buildRiscoAcademico } from "../../lib/analytics/buildRiscoAcademico";
 
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
@@ -34,6 +34,28 @@ async function buscarNotas(escolaId: string, bimestre: number, turmaId?: string)
   const rows = await db`
     SELECT * FROM notas
     WHERE escola_id = ${escolaId} AND bimestre = ${bimestre}
+  `;
+  return rows as unknown as Nota[];
+}
+
+// Risco acadêmico é cumulativo no ano — precisa de todos os bimestres já lançados (1..bimestreAlvo),
+// não só do bimestre selecionado no dashboard.
+async function buscarNotasAnoAte(
+  escolaId: string,
+  anoLetivo: number,
+  bimestreAlvo: number,
+  turmaId?: string
+): Promise<Nota[]> {
+  if (turmaId) {
+    const rows = await db`
+      SELECT * FROM notas
+      WHERE escola_id = ${escolaId} AND ano_letivo = ${anoLetivo} AND bimestre <= ${bimestreAlvo} AND turma_id = ${turmaId}
+    `;
+    return rows as unknown as Nota[];
+  }
+  const rows = await db`
+    SELECT * FROM notas
+    WHERE escola_id = ${escolaId} AND ano_letivo = ${anoLetivo} AND bimestre <= ${bimestreAlvo}
   `;
   return rows as unknown as Nota[];
 }
@@ -63,6 +85,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
   }
 
   const bimestreAlvo = bimestreParam ? Number(bimestreParam) : (escola.bimestre_atual as number | undefined) ?? 1;
+  const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
 
   // PROFESSOR só enxerga as turmas vinculadas a ele; demais papéis com viewAllTurmasDaEscola veem tudo.
   const restringirTurma = !capabilitiesFor(usuario.role).viewAllTurmasDaEscola;
@@ -101,10 +124,16 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     }),
   ]);
 
-  const notasBrutas = await buscarNotas(escolaId, bimestreAlvo, turmaId ?? undefined);
+  const [notasBrutas, notasAnoBrutas] = await Promise.all([
+    buscarNotas(escolaId, bimestreAlvo, turmaId ?? undefined),
+    buscarNotasAnoAte(escolaId, anoLetivo, bimestreAlvo, turmaId ?? undefined),
+  ]);
   const notas = turmasPermitidas
     ? notasBrutas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
     : notasBrutas;
+  const notasAno = turmasPermitidas
+    ? notasAnoBrutas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+    : notasAnoBrutas;
 
   const turmasParaAnalise = turmaId
     ? (todasTurmas as Turma[]).filter((t) => t.id === turmaId)
@@ -116,7 +145,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     turmas: turmasParaAnalise,
     disciplinas: disciplinas as Disciplina[],
     bimestre: bimestreAlvo,
-    anoLetivo: (escola.ano_letivo as number | undefined) ?? 2026,
+    anoLetivo,
   });
 
   const distribuicaoPedagogica = buildDistribuicaoPedagogica({
@@ -125,10 +154,11 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     turmas: turmasParaAnalise,
   });
 
-  // Críticos = 4+ disciplinas < 5,0 · Atenção = 2 ou 3 disciplinas < 5,0
-  const alertas = buildAlertas({
+  // Risco acadêmico anual: pré-reprovado por disciplina (média atual < 5, ou perto dos 20 pontos
+  // no fechamento do 4º bimestre = conselho) · Crítico = aluno com 3+ disciplinas em risco.
+  const alertas = buildRiscoAcademico({
     alunos: alunos as Aluno[],
-    notas: notas as Nota[],
+    notas: notasAno as Nota[],
     turmas: turmasParaAnalise,
     disciplinas: disciplinas as Disciplina[],
     matriz: matriz as MatrizDisciplina[],
@@ -143,12 +173,13 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
       turmaNome: item.turmaNome,
       mediaGeral: item.mediaGeral,
       status: "critico" as const,
-      totalDisciplinasRisco: item.totalDisciplinasAbaixo,
-      disciplinas: item.disciplinasAbaixo.map((d) => ({
+      totalDisciplinasRisco: item.totalDisciplinasRisco,
+      disciplinas: item.disciplinas.map((d) => ({
         disciplinaId: d.disciplinaId,
         nome: d.disciplinaNome,
         codigo: d.codigo,
         nota: d.nota,
+        emConselho: d.emConselho,
       })),
     })),
     ...alertas.atencao.map((item) => ({
@@ -159,12 +190,13 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
       turmaNome: item.turmaNome,
       mediaGeral: item.mediaGeral,
       status: "atencao" as const,
-      totalDisciplinasRisco: item.totalDisciplinasAbaixo,
-      disciplinas: item.disciplinasAbaixo.map((d) => ({
+      totalDisciplinasRisco: item.totalDisciplinasRisco,
+      disciplinas: item.disciplinas.map((d) => ({
         disciplinaId: d.disciplinaId,
         nome: d.disciplinaNome,
         codigo: d.codigo,
         nota: d.nota,
+        emConselho: d.emConselho,
       })),
     })),
   ];

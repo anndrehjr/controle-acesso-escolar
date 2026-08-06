@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { requireAuth } from "../../lib/requireAuth";
 import db from "../../lib/db";
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
-import { buildAlertas } from "../../lib/analytics/buildAlertas";
+import { buildRiscoAcademico } from "../../lib/analytics/buildRiscoAcademico";
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
 import AnalyticsHeaderNav from "../../components/analytics/AnalyticsHeaderNav";
@@ -61,9 +61,11 @@ export default async function AnalyticsPage() {
   const dashAtual = builds[bimestreAtual - 1];
   const dashAnterior = bimestreAtual > 1 ? builds[bimestreAtual - 2] : null;
 
-  const alertas = buildAlertas({
+  // Risco acadêmico é cumulativo no ano: usa tudo lançado até o bimestre atual, não só o bimestre isolado.
+  const notasAteAtual = todasNotas.filter(n => Number(n.bimestre) <= bimestreAtual);
+  const alertas = buildRiscoAcademico({
     alunos,
-    notas: notasB[bimestreAtual - 1],
+    notas: notasAteAtual,
     turmas,
     disciplinas,
     matriz,
@@ -167,7 +169,7 @@ export default async function AnalyticsPage() {
   if (dashAtual.disciplinaMaisCritica && dashAtual.disciplinaMaisCritica.percentual > 0)
     alertasTexto.push(`${dashAtual.disciplinaMaisCritica.disciplina.nome} tem o maior indice de alunos abaixo da media (${dashAtual.disciplinaMaisCritica.percentual.toFixed(0)}%).`);
   if (alertas.criticos.length > 0)
-    alertasTexto.push(`${alertas.criticos.length} aluno${alertas.criticos.length !== 1 ? "s estao" : " esta"} em estado critico (4 ou mais disciplinas abaixo de 5,0).`);
+    alertasTexto.push(`${alertas.criticos.length} aluno${alertas.criticos.length !== 1 ? "s estao" : " esta"} em risco critico de reprovacao (3 ou mais disciplinas pre-reprovadas no ano).`);
 
   return (
     <main className="min-h-screen p-6 md:p-8 space-y-8">

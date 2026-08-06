@@ -8,6 +8,7 @@ export type DisciplinaAlerta = {
   nome: string
   codigo: string
   nota: number
+  emConselho?: boolean
 }
 
 export type AlunoAlerta = {
@@ -124,7 +125,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               Painel de Alertas
             </h2>
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              {bimestre}º bimestre · 4+ disciplinas &lt; 5,0 (Crítico) · 2–3 disciplinas &lt; 5,0 (Atenção)
+              Risco anual · 3+ disciplinas pré-reprovadas (Crítico) · 1–2 disciplinas pré-reprovadas (Atenção)
             </p>
           </div>
         </div>
@@ -160,7 +161,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               {totalCriticos}
             </p>
             <p className="mt-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-              4 ou mais disciplinas abaixo de 5,0
+              3 ou mais disciplinas pré-reprovadas no ano
             </p>
             <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.6 }}>
               Clique para filtrar
@@ -193,7 +194,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               {totalAtencao}
             </p>
             <p className="mt-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
-              2 ou 3 disciplinas abaixo de 5,0
+              1 ou 2 disciplinas pré-reprovadas no ano
             </p>
             <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.6 }}>
               Clique para filtrar
@@ -311,7 +312,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               {busca || turmaFiltro
                 ? "Nenhum aluno corresponde aos filtros aplicados."
-                : "Nenhum aluno em situação de alerta neste bimestre."}
+                : "Nenhum aluno em risco acadêmico no ano até agora."}
             </p>
             {(busca || turmaFiltro) && (
               <button
@@ -469,6 +470,7 @@ function StudentCard({
               >
                 <span className="font-semibold">{d.codigo}</span>
                 <span>{d.nota.toFixed(1).replace(".", ",")}</span>
+                {d.emConselho && <span className="font-semibold">· Conselho</span>}
               </span>
             ))}
             {aluno.disciplinas.length > 5 && (
@@ -640,7 +642,7 @@ function DrawerContent({
             }}
           >
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Nenhuma disciplina individualmente abaixo de 5,0.
+              Nenhuma disciplina pré-reprovada individualmente.
             </p>
             <p
               className="mt-1.5 text-xs"
@@ -691,6 +693,18 @@ function DisciplinaBar({
           >
             {disciplina.nome}
           </span>
+          {disciplina.emConselho && (
+            <span
+              className="shrink-0 px-2 py-0.5 text-xs font-semibold"
+              style={{
+                borderRadius: "var(--radius-pill)",
+                background: "var(--status-warning-tint)",
+                color: "#7A5800",
+              }}
+            >
+              Conselho
+            </span>
+          )}
         </div>
         <span
           className="shrink-0 text-lg font-semibold"
