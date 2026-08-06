@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../lib/auth";
 import db from "../../../lib/db";
+import { cache } from "../../../lib/cache";
 import { capabilitiesFor } from "../../../types/roles";
 import { registrarAuditoria } from "../../../lib/audit";
 
@@ -13,14 +14,37 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
   }
 
-  const rows = capabilitiesFor(perfil.role).viewAllEscolas
-    ? await db`SELECT id, nome, email, role, escola_id, ativo FROM usuarios ORDER BY nome`
-    : await db`
-        SELECT id, nome, email, role, escola_id, ativo FROM usuarios
-        WHERE escola_id = ${perfil.escola_id} ORDER BY nome
-      `;
+  // Paginação (achado da auditoria — F-09): página 1-based, tamanho padrão generoso (100)
+  // pra não mudar o comportamento de quem já chama sem parâmetro nenhum.
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
+  const pageSize = Math.min(200, Math.max(1, Number(searchParams.get("pageSize") ?? "100")));
+  const offset = (page - 1) * pageSize;
 
-  return NextResponse.json({ data: rows });
+  const escopo = capabilitiesFor(perfil.role).viewAllEscolas;
+
+  const [rows, totalRows] = await Promise.all([
+    escopo
+      ? db`
+          SELECT id, nome, email, role, escola_id, ativo FROM usuarios
+          ORDER BY nome LIMIT ${pageSize} OFFSET ${offset}
+        `
+      : db`
+          SELECT id, nome, email, role, escola_id, ativo FROM usuarios
+          WHERE escola_id = ${perfil.escola_id}
+          ORDER BY nome LIMIT ${pageSize} OFFSET ${offset}
+        `,
+    escopo
+      ? db`SELECT count(*)::int AS total FROM usuarios`
+      : db`SELECT count(*)::int AS total FROM usuarios WHERE escola_id = ${perfil.escola_id}`,
+  ]);
+
+  const total = totalRows[0]?.total ?? 0;
+
+  return NextResponse.json({
+    data: rows,
+    pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+  });
 }
 
 export async function POST(request: Request) {
@@ -73,6 +97,10 @@ export async function POST(request: Request) {
     req: request,
     dadosNovos: { id: novo.id, nome, email, role, escolaId: escolaFinal },
   });
+
+  // Invalidação ativa de cache (achado da auditoria) — inofensivo hoje (esta listagem não é
+  // cacheada), mas protege qualquer cache futuro de usuários sem precisar lembrar disso depois.
+  cache.invalidate("usuarios:");
 
   return NextResponse.json({ id: novo.id }, { status: 201 });
 }

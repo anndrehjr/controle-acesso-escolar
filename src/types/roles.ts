@@ -15,6 +15,8 @@ export interface RoleCapabilities {
   manageUsuarios: boolean
   /** Pode acessar a tela de logs de auditoria */
   viewAuditLogs: boolean
+  /** Pode lançar/editar notas (sempre restrito às turmas visíveis do usuário — F-01) */
+  manageNotas: boolean
 }
 
 export const CAPABILITIES: Record<Role, RoleCapabilities> = {
@@ -23,24 +25,28 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
     viewAllTurmasDaEscola: true,
     manageUsuarios: true,
     viewAuditLogs: true,
+    manageNotas: true,
   },
   ADMIN_ESCOLA: {
     viewAllEscolas: false,
     viewAllTurmasDaEscola: true,
     manageUsuarios: false,
     viewAuditLogs: false,
+    manageNotas: true,
   },
   PROFESSOR: {
     viewAllEscolas: false,
     viewAllTurmasDaEscola: false,
     manageUsuarios: false,
     viewAuditLogs: false,
+    manageNotas: true,
   },
   LEITOR: {
     viewAllEscolas: false,
     viewAllTurmasDaEscola: true,
     manageUsuarios: false,
     viewAuditLogs: false,
+    manageNotas: false,
   },
 }
 
