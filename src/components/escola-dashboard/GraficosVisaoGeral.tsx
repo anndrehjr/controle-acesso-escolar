@@ -35,6 +35,8 @@ type Props = {
   distribuicaoGeral: DistribuicaoGeral;
 };
 
+// Mesma escala de 4 níveis usada em TendenciaBimestres (corPorMedia), pra manter
+// a linguagem de cor consistente em todo o dashboard.
 const cores = {
   critico: "#ef4444",
   basico: "#eab308",
@@ -42,23 +44,12 @@ const cores = {
   avancado: "#3b82f6",
 };
 
-const chartColorsByTheme = {
-  dark: {
-    grid: "#27272a",
-    axis: "#a1a1aa",
-    tick: "#d4d4d8",
-    tooltipBg: "#09090b",
-    tooltipBorder: "#3f3f46",
-    tooltipText: "#ffffff",
-  },
-  light: {
-    grid: "#e5e7eb",
-    axis: "#9ca3af",
-    tick: "#374151",
-    tooltipBg: "#ffffff",
-    tooltipBorder: "#e5e7eb",
-    tooltipText: "#111827",
-  },
+const cardStyle: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-sm)",
+  boxShadow: "var(--shadow-card)",
+  padding: "var(--space-4)",
 };
 
 export default function GraficosVisaoGeral({
@@ -66,29 +57,30 @@ export default function GraficosVisaoGeral({
   distribuicaoGeral,
 }: Props) {
   const theme = useCurrentTheme();
-  const c = chartColorsByTheme[theme];
+
+  const c = theme === "dark"
+    ? {
+        grid: "#27272a",
+        axis: "#a1a1aa",
+        tick: "#e4e4e7",
+        tooltipBg: "#18181b",
+        tooltipBorder: "#27272a",
+        tooltipText: "#e4e4e7",
+      }
+    : {
+        grid: "#e5e7eb",
+        axis: "#6b7280",
+        tick: "#111827",
+        tooltipBg: "#ffffff",
+        tooltipBorder: "#e5e7eb",
+        tooltipText: "#111827",
+      };
 
   const pizza = [
-    {
-      name: "Crítico",
-      value: distribuicaoGeral.critico,
-      color: cores.critico,
-    },
-    {
-      name: "Básico",
-      value: distribuicaoGeral.basico,
-      color: cores.basico,
-    },
-    {
-      name: "Adequado",
-      value: distribuicaoGeral.adequado,
-      color: cores.adequado,
-    },
-    {
-      name: "Avançado",
-      value: distribuicaoGeral.avancado,
-      color: cores.avancado,
-    },
+    { name: "Crítico", value: distribuicaoGeral.critico, color: cores.critico },
+    { name: "Básico", value: distribuicaoGeral.basico, color: cores.basico },
+    { name: "Adequado", value: distribuicaoGeral.adequado, color: cores.adequado },
+    { name: "Avançado", value: distribuicaoGeral.avancado, color: cores.avancado },
   ];
 
   const total =
@@ -99,122 +91,131 @@ export default function GraficosVisaoGeral({
 
   return (
     <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-        <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-
-        <div className="relative z-10">
-          <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
-            Indicadores por turma
-          </div>
-
-          <h2 className="text-2xl font-black tracking-tight md:text-3xl">
-            Distribuição Pedagógica por Turma
-          </h2>
-
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400 md:text-base">
-            Quantidade de alunos em cada nível pedagógico
-          </p>
-
-          <div className="mt-8 h-[380px] md:h-[430px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distribuicaoPorTurma} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
-
-                <XAxis
-                  dataKey="turma"
-                  stroke={c.axis}
-                  tick={{ fontSize: 11, fill: c.tick, fontWeight: 700 }}
-                  angle={-25}
-                  textAnchor="end"
-                  height={60}
-                  interval={0}
-                />
-
-                <YAxis stroke={c.axis} tick={{ fill: c.axis }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: c.tooltipBg,
-                    border: `1px solid ${c.tooltipBorder}`,
-                    borderRadius: "16px",
-                    color: c.tooltipText,
-                  }}
-                />
-
-                <Bar dataKey="critico" stackId="a" fill={cores.critico} radius={[0, 0, 0, 0]}>
-                  <LabelList dataKey="critico" position="center" fill="#fff" fontWeight={800} />
-                </Bar>
-
-                <Bar dataKey="basico" stackId="a" fill={cores.basico}>
-                  <LabelList dataKey="basico" position="center" fill="#000" fontWeight={800} />
-                </Bar>
-
-                <Bar dataKey="adequado" stackId="a" fill={cores.adequado}>
-                  <LabelList dataKey="adequado" position="center" fill="#000" fontWeight={800} />
-                </Bar>
-
-                <Bar dataKey="avancado" stackId="a" fill={cores.avancado} radius={[8, 8, 0, 0]}>
-                  <LabelList dataKey="avancado" position="center" fill="#fff" fontWeight={800} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <Legenda total={total} dados={pizza} />
+      <div style={cardStyle}>
+        <div className="mb-3 inline-flex px-3 py-1 text-xs font-medium"
+          style={{
+            background: "var(--bg-app)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-pill)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          Indicadores por turma
         </div>
+
+        <h2 className="text-lg tracking-tight" style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+          Distribuição Pedagógica por Turma
+        </h2>
+
+        <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          Quantidade de alunos em cada nível pedagógico
+        </p>
+
+        <div className="mt-6 h-[380px] md:h-[430px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={distribuicaoPorTurma}
+              margin={{ top: 20, right: 20, left: 0, bottom: 10 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={c.grid} />
+
+              <XAxis
+                dataKey="turma"
+                stroke={c.axis}
+                tick={{ fontSize: 11, fill: c.tick, fontWeight: 600 }}
+                angle={-25}
+                textAnchor="end"
+                height={60}
+                interval={0}
+              />
+
+              <YAxis stroke={c.axis} tick={{ fill: c.axis }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: c.tooltipBg,
+                  border: `1px solid ${c.tooltipBorder}`,
+                  borderRadius: "6px",
+                  color: c.tooltipText,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                }}
+              />
+
+              <Bar dataKey="critico" stackId="a" fill={cores.critico} radius={[0, 0, 0, 0]}>
+                <LabelList dataKey="critico" position="center" fill="#fff" fontWeight={600} />
+              </Bar>
+
+              <Bar dataKey="basico" stackId="a" fill={cores.basico}>
+                <LabelList dataKey="basico" position="center" fill="#2B2F36" fontWeight={600} />
+              </Bar>
+
+              <Bar dataKey="adequado" stackId="a" fill={cores.adequado}>
+                <LabelList dataKey="adequado" position="center" fill="#fff" fontWeight={600} />
+              </Bar>
+
+              <Bar dataKey="avancado" stackId="a" fill={cores.avancado} radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="avancado" position="center" fill="#fff" fontWeight={600} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <Legenda total={total} dados={pizza} />
       </div>
 
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-        <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-
-        <div className="relative z-10">
-          <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
-            Panorama geral
-          </div>
-
-          <h2 className="text-2xl font-black tracking-tight md:text-3xl">
-            Visão Geral da Escola
-          </h2>
-
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400 md:text-base">
-            Total de {total} alunos por nível pedagógico
-          </p>
-
-          <div className="mt-8 h-[380px] md:h-[430px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: c.tooltipBg,
-                    border: `1px solid ${c.tooltipBorder}`,
-                    borderRadius: "16px",
-                    color: c.tooltipText,
-                  }}
-                />
-                <Pie
-                  data={pizza}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={145}
-                  innerRadius={70}
-                  paddingAngle={3}
-                  label={({ value, percent }) =>
-                    `${value} (${((percent ?? 0) * 100).toFixed(0)}%)`
-                  }
-                >
-                  {pizza.map((item) => (
-                    <Cell key={item.name} fill={item.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <Legenda total={total} dados={pizza} />
+      <div style={cardStyle}>
+        <div className="mb-3 inline-flex px-3 py-1 text-xs font-medium"
+          style={{
+            background: "var(--bg-app)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-pill)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          Panorama geral
         </div>
+
+        <h2 className="text-lg tracking-tight" style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+          Visão Geral da Escola
+        </h2>
+
+        <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+          Total de {total} alunos por nível pedagógico
+        </p>
+
+        <div className="mt-6 h-[380px] md:h-[430px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: c.tooltipBg,
+                  border: `1px solid ${c.tooltipBorder}`,
+                  borderRadius: "6px",
+                  color: c.tooltipText,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                }}
+              />
+              <Pie
+                data={pizza}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={145}
+                innerRadius={70}
+                paddingAngle={3}
+                label={({ value, percent }) =>
+                  `${value} (${((percent ?? 0) * 100).toFixed(0)}%)`
+                }
+              >
+                {pizza.map((item) => (
+                  <Cell key={item.name} fill={item.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <Legenda total={total} dados={pizza} />
       </div>
     </section>
   );
@@ -228,24 +229,28 @@ function Legenda({
   total: number;
 }) {
   return (
-    <div className="mt-6 flex flex-wrap justify-center gap-3">
+    <div className="mt-4 flex flex-wrap justify-center gap-2">
       {dados.map((item) => (
         <div
           key={item.name}
-          className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-2 shadow-lg"
+          className="flex items-center gap-2 px-3 py-1.5"
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-pill)",
+            background: "var(--bg-app)",
+          }}
         >
           <div
-            className="h-4 w-4 rounded"
+            className="h-3 w-3 rounded-full"
             style={{ backgroundColor: item.color }}
           />
-
-          <span className="font-bold text-zinc-100">{item.name}</span>
-
-          <span style={{ color: item.color }} className="font-black">
+          <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            {item.name}
+          </span>
+          <span className="text-xs font-semibold" style={{ color: item.color }}>
             {item.value}
           </span>
-
-          <span className="text-zinc-400">
+          <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
             ({total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%)
           </span>
         </div>

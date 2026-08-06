@@ -33,9 +33,13 @@ export function TopBar() {
     // Altura fixa sempre reservada no fluxo (sticky) — só a opacidade muda ao rolar,
     // pra nunca sobrepor o conteúdo abaixo nem causar salto de layout.
     <div
-      className={`sticky top-0 z-40 flex h-9 items-center justify-between gap-3 bg-zinc-950/80 px-3 backdrop-blur-md transition-opacity duration-300 ease-in-out ${
+      className={`sticky top-0 z-40 flex h-9 items-center justify-between gap-3 px-3 backdrop-blur-md transition-opacity duration-300 ease-in-out ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
+      style={{
+        background: "color-mix(in srgb, var(--bg-card) 80%, transparent)",
+        borderBottom: "1px solid var(--border-subtle)",
+      }}
     >
       <UserMenu />
       <ThemeToggle />

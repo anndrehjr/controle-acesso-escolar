@@ -31,11 +31,15 @@ function ProgressBarInner() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px] overflow-hidden bg-zinc-800"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px] overflow-hidden"
+      style={{ background: "var(--border-subtle)" }}
     >
       <div
-        className="h-full w-full bg-gradient-to-r from-transparent via-white to-transparent"
-        style={{ animation: "nav-shimmer 1.4s ease-in-out infinite" }}
+        className="h-full w-full"
+        style={{
+          background: "linear-gradient(90deg, transparent, var(--brand-primary), transparent)",
+          animation: "nav-shimmer 1.4s ease-in-out infinite",
+        }}
       />
     </div>
   );

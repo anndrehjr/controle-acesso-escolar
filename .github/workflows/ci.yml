@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - name: Testes unitários (lib/analytics)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Valores fictícios só pra satisfazer o build — nenhuma query roda de verdade durante
+          # `next build` (postgres.js conecta de forma preguiçosa, só no primeiro uso real).
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          JWT_SECRET: ci-somente-para-build-nao-usar-em-producao
+          NEXT_PUBLIC_ESCOLA_ID: 00000000-0000-0000-0000-000000000000
+          NEXT_PUBLIC_APP_URL: http://localhost:3000

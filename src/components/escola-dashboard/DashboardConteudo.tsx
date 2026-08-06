@@ -19,7 +19,7 @@ import PainelAlertas from "./PainelAlertas";
 
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
 import { buildDistribuicaoPedagogica } from "../../lib/analytics/buildDistribuicaoPedagogica";
-import { buildAlertas } from "../../lib/analytics/buildAlertas";
+import { buildRiscoAcademico } from "../../lib/analytics/buildRiscoAcademico";
 
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
@@ -34,6 +34,28 @@ async function buscarNotas(escolaId: string, bimestre: number, turmaId?: string)
   const rows = await db`
     SELECT * FROM notas
     WHERE escola_id = ${escolaId} AND bimestre = ${bimestre}
+  `;
+  return rows as unknown as Nota[];
+}
+
+// Risco acadêmico é cumulativo no ano — precisa de todos os bimestres já lançados (1..bimestreAlvo),
+// não só do bimestre selecionado no dashboard.
+async function buscarNotasAnoAte(
+  escolaId: string,
+  anoLetivo: number,
+  bimestreAlvo: number,
+  turmaId?: string
+): Promise<Nota[]> {
+  if (turmaId) {
+    const rows = await db`
+      SELECT * FROM notas
+      WHERE escola_id = ${escolaId} AND ano_letivo = ${anoLetivo} AND bimestre <= ${bimestreAlvo} AND turma_id = ${turmaId}
+    `;
+    return rows as unknown as Nota[];
+  }
+  const rows = await db`
+    SELECT * FROM notas
+    WHERE escola_id = ${escolaId} AND ano_letivo = ${anoLetivo} AND bimestre <= ${bimestreAlvo}
   `;
   return rows as unknown as Nota[];
 }
@@ -54,15 +76,16 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
 
   if (!escola) {
     return (
-      <main className="min-h-screen bg-zinc-900 p-8 text-white flex items-center justify-center">
+      <main className="min-h-screen p-8 flex items-center justify-center" style={{ background: "var(--bg-app)" }}>
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-400">Escola não encontrada</h1>
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--brand-accent-red)" }}>Escola não encontrada</h1>
         </div>
       </main>
     );
   }
 
   const bimestreAlvo = bimestreParam ? Number(bimestreParam) : (escola.bimestre_atual as number | undefined) ?? 1;
+  const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
 
   // PROFESSOR só enxerga as turmas vinculadas a ele; demais papéis com viewAllTurmasDaEscola veem tudo.
   const restringirTurma = !capabilitiesFor(usuario.role).viewAllTurmasDaEscola;
@@ -101,10 +124,16 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     }),
   ]);
 
-  const notasBrutas = await buscarNotas(escolaId, bimestreAlvo, turmaId ?? undefined);
+  const [notasBrutas, notasAnoBrutas] = await Promise.all([
+    buscarNotas(escolaId, bimestreAlvo, turmaId ?? undefined),
+    buscarNotasAnoAte(escolaId, anoLetivo, bimestreAlvo, turmaId ?? undefined),
+  ]);
   const notas = turmasPermitidas
     ? notasBrutas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
     : notasBrutas;
+  const notasAno = turmasPermitidas
+    ? notasAnoBrutas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+    : notasAnoBrutas;
 
   const turmasParaAnalise = turmaId
     ? (todasTurmas as Turma[]).filter((t) => t.id === turmaId)
@@ -116,7 +145,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     turmas: turmasParaAnalise,
     disciplinas: disciplinas as Disciplina[],
     bimestre: bimestreAlvo,
-    anoLetivo: (escola.ano_letivo as number | undefined) ?? 2026,
+    anoLetivo,
   });
 
   const distribuicaoPedagogica = buildDistribuicaoPedagogica({
@@ -125,10 +154,11 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     turmas: turmasParaAnalise,
   });
 
-  // Críticos = 4+ disciplinas < 5,0 · Atenção = 2 ou 3 disciplinas < 5,0
-  const alertas = buildAlertas({
+  // Risco acadêmico anual: pré-reprovado por disciplina (média atual < 5, ou perto dos 20 pontos
+  // no fechamento do 4º bimestre = conselho) · Crítico = aluno com 3+ disciplinas em risco.
+  const alertas = buildRiscoAcademico({
     alunos: alunos as Aluno[],
-    notas: notas as Nota[],
+    notas: notasAno as Nota[],
     turmas: turmasParaAnalise,
     disciplinas: disciplinas as Disciplina[],
     matriz: matriz as MatrizDisciplina[],
@@ -143,12 +173,13 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
       turmaNome: item.turmaNome,
       mediaGeral: item.mediaGeral,
       status: "critico" as const,
-      totalDisciplinasRisco: item.totalDisciplinasAbaixo,
-      disciplinas: item.disciplinasAbaixo.map((d) => ({
+      totalDisciplinasRisco: item.totalDisciplinasRisco,
+      disciplinas: item.disciplinas.map((d) => ({
         disciplinaId: d.disciplinaId,
         nome: d.disciplinaNome,
         codigo: d.codigo,
         nota: d.nota,
+        emConselho: d.emConselho,
       })),
     })),
     ...alertas.atencao.map((item) => ({
@@ -159,12 +190,13 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
       turmaNome: item.turmaNome,
       mediaGeral: item.mediaGeral,
       status: "atencao" as const,
-      totalDisciplinasRisco: item.totalDisciplinasAbaixo,
-      disciplinas: item.disciplinasAbaixo.map((d) => ({
+      totalDisciplinasRisco: item.totalDisciplinasRisco,
+      disciplinas: item.disciplinas.map((d) => ({
         disciplinaId: d.disciplinaId,
         nome: d.disciplinaNome,
         codigo: d.codigo,
         nota: d.nota,
+        emConselho: d.emConselho,
       })),
     })),
   ];
@@ -177,7 +209,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
   const basePath = capabilitiesFor(usuario.role).viewAllEscolas ? "/dashboard" : `/dashboard/escolas/${escolaId}`;
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
+    <main className="min-h-screen p-6 md:p-8" style={{ background: "var(--bg-app)" }}>
       <HeaderEscola
         nome={escola.nome as string}
         cidade={(escola.cidade as string | undefined) ?? ""}
@@ -189,7 +221,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
       />
 
       {semDados && (
-        <div className="mt-6 rounded-2xl border border-yellow-900/40 bg-yellow-950/30 px-5 py-4 text-yellow-300 text-sm">
+        <div className="mt-6 p-4 text-sm" style={{ border: "1px solid var(--status-warning-bg)", background: "var(--status-warning-tint)", color: "#7A5800", borderRadius: "var(--radius-sm)" }}>
           Nenhuma nota encontrada para o <strong>{bimestreAlvo}º bimestre</strong>
           {turmaId && " nesta turma"}. Selecione outro bimestre ou importe os dados.
         </div>

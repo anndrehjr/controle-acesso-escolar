@@ -48,71 +48,105 @@ export default function ResumoPedagogico({
       titulo: "Em atenção",
       valor: alunosAtencao,
       icon: <WarningIcon />,
-      iconBg: alunosAtencao > 0 ? "bg-amber-500/15 text-amber-400" : "bg-zinc-800 text-zinc-500",
-      cardBg: alunosAtencao > 0 ? "border-amber-500/20 bg-amber-950/20" : "border-zinc-800 bg-zinc-900/70",
-      valueColor: alunosAtencao > 0 ? "text-amber-300" : "text-white",
+      iconBg: alunosAtencao > 0 ? "var(--status-warning-tint)" : "var(--bg-app)",
+      iconColor: alunosAtencao > 0 ? "#E8860C" : "var(--text-secondary)",
+      valueColor: alunosAtencao > 0 ? "#E8860C" : "var(--text-primary)",
     },
     {
       titulo: "Transferidos",
       valor: alunosTransferidos,
       icon: <TransferIcon />,
-      iconBg: "bg-zinc-800 text-zinc-400",
-      cardBg: "border-zinc-800 bg-zinc-900/70",
-      valueColor: "text-zinc-300",
+      iconBg: "var(--bg-app)",
+      iconColor: "var(--text-secondary)",
+      valueColor: "var(--text-primary)",
     },
     {
       titulo: "Notas válidas",
       valor: totalNotas.toLocaleString("pt-BR"),
       icon: <NotesIcon />,
-      iconBg: "bg-blue-500/15 text-blue-400",
-      cardBg: "border-zinc-800 bg-zinc-900/70",
-      valueColor: "text-white",
+      iconBg: "var(--bg-sidebar-active)",
+      iconColor: "var(--brand-primary)",
+      valueColor: "var(--text-primary)",
     },
     {
       titulo: "Bimestre atual",
       valor: `${bimestre}º`,
       icon: <CalendarIcon />,
-      iconBg: "bg-indigo-500/15 text-indigo-400",
-      cardBg: "border-indigo-500/10 bg-indigo-950/10",
-      valueColor: "text-indigo-300",
+      iconBg: "var(--bg-sidebar-active)",
+      iconColor: "var(--brand-primary)",
+      valueColor: "var(--brand-primary)",
     },
     {
       titulo: "Ano letivo",
       valor: anoLetivo,
       icon: <AcademicIcon />,
-      iconBg: "bg-zinc-800 text-zinc-400",
-      cardBg: "border-zinc-800 bg-zinc-900/70",
-      valueColor: "text-zinc-300",
+      iconBg: "var(--bg-app)",
+      iconColor: "var(--text-secondary)",
+      valueColor: "var(--text-primary)",
     },
   ];
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-
-      <div className="relative z-10 mb-6">
-        <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
+    <div
+      className="p-6 md:p-8"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      <div className="mb-6">
+        <div
+          className="mb-2 inline-flex px-3 py-1 text-xs font-medium"
+          style={{
+            background: "var(--bg-app)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-pill)",
+            color: "var(--text-secondary)",
+          }}
+        >
           Síntese pedagógica
         </div>
-        <h2 className="text-2xl font-black tracking-tight md:text-3xl">
+        <h2
+          className="text-lg tracking-tight"
+          style={{ color: "var(--text-primary)", fontWeight: 600 }}
+        >
           Resumo Pedagógico
         </h2>
       </div>
 
-      <div className="relative z-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {itens.map((item) => (
           <div
             key={item.titulo}
-            className={`rounded-2xl border p-5 shadow-lg transition hover:-translate-y-0.5 ${item.cardBg}`}
+            className="p-4 transition"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-app)",
+            }}
           >
-            <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl ${item.iconBg}`}>
+            <div
+              className="mb-3 flex h-8 w-8 items-center justify-center"
+              style={{
+                background: item.iconBg,
+                borderRadius: "var(--radius-sm)",
+                color: item.iconColor,
+              }}
+            >
               {item.icon}
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            <p
+              className="text-xs font-medium uppercase tracking-wider"
+              style={{ color: "var(--text-secondary)" }}
+            >
               {item.titulo}
             </p>
-            <h3 className={`mt-1 text-3xl font-black ${item.valueColor}`}>
+            <h3
+              className="mt-1 text-2xl"
+              style={{ color: item.valueColor, fontWeight: 600 }}
+            >
               {item.valor}
             </h3>
           </div>

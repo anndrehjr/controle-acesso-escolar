@@ -42,32 +42,50 @@ export default function TabsDashboard({
   const colunas = abas.length <= 5 ? `md:grid-cols-5` : `md:grid-cols-6`;
 
   return (
-    <div className="mt-8">
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-2 shadow-2xl backdrop-blur">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-
-        <div className={`relative z-10 grid grid-cols-2 gap-2 ${colunas}`}>
-          {abas.map((aba) => (
-            <button
-              key={aba.id}
-              onClick={() => setAbaAtiva(aba.id)}
-              className={`rounded-2xl px-4 py-3 text-sm font-black transition md:text-base ${
-                abaAtiva === aba.id
-                  ? aba.id === "comparativo"
-                    ? "bg-indigo-500 text-white shadow-xl"
-                    : "bg-white text-black shadow-xl"
-                  : aba.id === "comparativo"
-                  ? "text-indigo-400 hover:bg-indigo-950/60 hover:text-indigo-200"
-                  : "text-zinc-400 hover:bg-zinc-900 hover:text-white"
-              }`}
-            >
-              {aba.nome}
-            </button>
-          ))}
+    <div className="mt-6">
+      <div
+        className="p-1"
+        style={{
+          background: "var(--bg-card)",
+          border: "1px solid var(--border-subtle)",
+          borderRadius: "var(--radius-sm)",
+          boxShadow: "var(--shadow-card)",
+        }}
+      >
+        <div className={`grid grid-cols-2 gap-1 ${colunas}`}>
+          {abas.map((aba) => {
+            const isAtiva = abaAtiva === aba.id;
+            const isComparativo = aba.id === "comparativo";
+            return (
+              <button
+                key={aba.id}
+                onClick={() => setAbaAtiva(aba.id)}
+                className="px-4 py-2.5 text-sm transition"
+                style={{
+                  borderRadius: "var(--radius-sm)",
+                  fontWeight: isAtiva
+                    ? "var(--font-weight-semibold)"
+                    : "var(--font-weight-regular)",
+                  background: isAtiva
+                    ? isComparativo
+                      ? "var(--bg-sidebar-active)"
+                      : "var(--brand-primary)"
+                    : "transparent",
+                  color: isAtiva
+                    ? isComparativo
+                      ? "var(--brand-primary)"
+                      : "#FFFFFF"
+                    : "var(--text-secondary)",
+                }}
+              >
+                {aba.nome}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-6">
         {abaAtiva === "visao" && visaoGeral}
         {abaAtiva === "turmas" && turmas}
         {abaAtiva === "disciplinas" && disciplinas}

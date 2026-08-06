@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 
 export function useCurrentTheme(): "dark" | "light" {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
   useEffect(() => {
     function sync() {
       const t = document.documentElement.getAttribute("data-theme");
-      setTheme(t === "light" ? "light" : "dark");
+      setTheme(t === "dark" ? "dark" : "light");
     }
 
     sync();

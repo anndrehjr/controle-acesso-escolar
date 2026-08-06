@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import InfoTooltip from "../InfoTooltip";
+import StyledSelect from "../StyledSelect";
 
 type HeatmapData = {
   turmaId: string;
@@ -19,6 +21,8 @@ type HeatmapData = {
     numeroChamada: number;
     emAtencao: boolean;
     media: number | null;
+    /** 3+ disciplinas em risco pela média acumulada do ano (mesma regra do dashboard/alertas) */
+    preReprovado?: boolean;
     disciplinas: {
       disciplinaId: string;
       disciplinaNome: string;
@@ -28,12 +32,16 @@ type HeatmapData = {
   }[];
 };
 
-function getClasseNota(nota: number | null) {
-  if (nota === null) return "bg-zinc-800 text-zinc-500 ring-zinc-700";
-  if (nota <= 4) return "bg-red-500/15 text-red-300 ring-red-500/30";
-  if (nota <= 6) return "bg-yellow-500/15 text-yellow-300 ring-yellow-500/30";
-  if (nota <= 8) return "bg-green-500/15 text-green-300 ring-green-500/30";
-  return "bg-blue-500/15 text-blue-300 ring-blue-500/30";
+function getStyleNota(nota: number | null): React.CSSProperties {
+  if (nota === null)
+    return { background: "var(--border-subtle)", color: "var(--text-secondary)" };
+  if (nota <= 4)
+    return { background: "var(--status-danger-tint)", color: "var(--status-danger-bg)" };
+  if (nota <= 6)
+    return { background: "var(--status-warning-tint)", color: "var(--status-warning-bg)" };
+  if (nota <= 8)
+    return { background: "var(--status-success-tint)", color: "var(--status-success-bg)" };
+  return { background: "rgba(91,156,246,0.18)", color: "var(--brand-primary)" };
 }
 
 type Props = {
@@ -86,22 +94,32 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
 
   if (loading) {
     return (
-      <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 shadow-2xl backdrop-blur md:p-8">
+      <div
+        className="relative overflow-hidden rounded-3xl border p-6 shadow-2xl backdrop-blur md:p-8"
+        style={{ borderColor: "var(--border-subtle)", background: "var(--bg-app)" }}
+      >
         <div className="animate-pulse space-y-6">
           <div className="space-y-3">
-            <div className="h-3 w-32 rounded-full bg-zinc-800" />
-            <div className="h-8 w-64 rounded-2xl bg-zinc-800" />
-            <div className="h-4 w-80 rounded-xl bg-zinc-800/60" />
+            <div className="h-3 w-32 rounded-full" style={{ background: "var(--border-subtle)" }} />
+            <div className="h-8 w-64 rounded-2xl" style={{ background: "var(--border-subtle)" }} />
+            <div className="h-4 w-80 rounded-xl" style={{ background: "var(--border-subtle)" }} />
           </div>
-          <div className="h-10 w-48 rounded-2xl bg-zinc-800/60" />
-          <div className="overflow-hidden rounded-2xl border border-zinc-800">
-            <div className="h-10 border-b border-zinc-800 bg-zinc-900" />
+          <div className="h-10 w-48 rounded-2xl" style={{ background: "var(--border-subtle)" }} />
+          <div className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--border-subtle)" }}>
+            <div
+              className="h-10 border-b"
+              style={{ borderColor: "var(--border-subtle)", background: "var(--bg-app)" }}
+            />
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex h-12 gap-2 border-b border-zinc-800 px-3 items-center">
-                <div className="h-4 w-40 rounded bg-zinc-800" />
+              <div
+                key={i}
+                className="flex h-12 gap-2 border-b px-3 items-center"
+                style={{ borderColor: "var(--border-subtle)" }}
+              >
+                <div className="h-4 w-40 rounded" style={{ background: "var(--border-subtle)" }} />
                 {[...Array(6)].map((_, j) => (
                   <div key={j} className="flex-1">
-                    <div className="mx-auto h-7 w-full rounded-xl bg-zinc-800/60" />
+                    <div className="mx-auto h-7 w-full rounded-xl" style={{ background: "var(--border-subtle)" }} />
                   </div>
                 ))}
               </div>
@@ -128,8 +146,15 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
 
   if (!turmaAtual) {
     return (
-      <div className="rounded-3xl border border-zinc-800 bg-zinc-950/80 p-8 text-zinc-400 shadow-2xl backdrop-blur">
-        Nenhum dado de heatmap disponível.
+      <div
+        className="rounded-3xl border p-8 shadow-2xl backdrop-blur"
+        style={{
+          borderColor: "var(--border-subtle)",
+          background: "var(--bg-app)",
+          color: "var(--text-secondary)",
+        }}
+      >
+        Nenhum dado de heatmap disponivel.
       </div>
     );
   }
@@ -141,19 +166,40 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
   );
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
+    <div
+      className="relative overflow-hidden rounded-3xl border p-6 shadow-2xl backdrop-blur md:p-8"
+      style={{
+        borderColor: "var(--border-subtle)",
+        background: "var(--bg-card)",
+        color: "var(--text-primary)",
+      }}
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
+      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full blur-3xl" style={{ background: "var(--border-subtle)" }} />
 
       <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
+          <div
+            className="mb-3 inline-flex rounded-full border px-3 py-1 text-xs font-medium"
+            style={{
+              borderColor: "var(--border-subtle)",
+              background: "var(--bg-app)",
+              color: "var(--text-secondary)",
+            }}
+          >
             Mapa de desempenho
           </div>
-          <h2 className="text-2xl font-black tracking-tight md:text-3xl">
-            Heatmap Pedagógico
+          <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight md:text-3xl">
+            Heatmap Pedagogico
+            <InfoTooltip
+              align="start"
+              texto="Cada célula é a nota de um aluno numa disciplina, no bimestre selecionado. A cor segue a faixa de desempenho (veja a legenda abaixo). Células vazias indicam nota ainda não lançada."
+            />
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-400 md:text-base">
+          <p
+            className="mt-2 text-sm leading-relaxed md:text-base"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Notas por aluno e disciplina. Clique no aluno para ver o detalhamento.
           </p>
         </div>
@@ -161,7 +207,12 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setMostrarNomes((v) => !v)}
-            className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+            className="flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold transition"
+            style={{
+              borderColor: "var(--border-subtle)",
+              background: "var(--bg-app)",
+              color: "var(--text-secondary)",
+            }}
           >
             {mostrarNomes ? (
               <>
@@ -176,38 +227,60 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
             )}
           </button>
 
-          <select
+          <StyledSelect
             value={turmaAtual.turmaId}
             onChange={(e) => setTurmaSelecionada(e.target.value)}
-            className="rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-bold text-white outline-none transition focus:border-white"
+            className="rounded-2xl py-3 pl-4 text-sm font-bold"
           >
             {data.map((turma) => (
               <option key={turma.turmaId} value={turma.turmaId}>
                 {turma.turmaNome}
               </option>
             ))}
-          </select>
+          </StyledSelect>
         </div>
       </div>
 
-      <div className="relative z-10 mt-8 overflow-x-auto rounded-2xl border border-zinc-800 bg-black/20">
+      <div
+        className="relative z-10 mt-8 overflow-x-auto rounded-2xl border"
+        style={{ borderColor: "var(--border-subtle)", background: "var(--bg-app)" }}
+      >
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className="sticky left-0 z-20 min-w-[220px] border border-zinc-800 bg-zinc-950 p-3 text-left text-zinc-200">
+              <th
+                className="sticky left-0 z-20 min-w-[220px] border p-3 text-left"
+                style={{
+                  borderColor: "var(--border-subtle)",
+                  background: "var(--bg-app)",
+                  color: "var(--text-primary)",
+                }}
+              >
                 Aluno
               </th>
               {turmaAtual.disciplinas.map((d) => (
                 <th
                   key={d.id}
                   title={d.nome}
-                  className="min-w-[72px] border border-zinc-800 bg-zinc-950 p-3 text-center text-zinc-300"
+                  className="min-w-[72px] border p-3 text-center"
+                  style={{
+                    borderColor: "var(--border-subtle)",
+                    background: "var(--bg-app)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   {d.codigo.replace("C", "")}
                 </th>
               ))}
-              <th className="min-w-[100px] border border-zinc-800 bg-zinc-950 p-3 text-center text-zinc-200">
-                Média
+              <th
+                className="min-w-[100px] border p-3 text-center"
+                style={{
+                  borderColor: "var(--border-subtle)",
+                  background: "var(--bg-app)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                Media
               </th>
             </tr>
           </thead>
@@ -220,33 +293,61 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
                 className={`cursor-pointer ${
                   aluno.emAtencao
                     ? "bg-red-500/5 hover:bg-red-500/10"
-                    : "hover:bg-zinc-800/60"
+                    : "hover:bg-zinc-800/20"
                 }`}
               >
                 <td
-                  className={`sticky left-0 z-10 border border-zinc-800 p-3 font-semibold ${
+                  className="sticky left-0 z-10 border p-3 font-semibold"
+                  style={
                     aluno.emAtencao
-                      ? "bg-red-950/80 text-red-300"
-                      : "bg-zinc-950 text-zinc-100"
-                  }`}
+                      ? { borderColor: "var(--border-subtle)" }
+                      : {
+                          borderColor: "var(--border-subtle)",
+                          background: "var(--bg-app)",
+                          color: "var(--text-primary)",
+                        }
+                  }
                 >
-                  {mostrarNomes
-                    ? aluno.nome
-                    : `Nº ${String(aluno.numeroChamada).padStart(2, "0")}`}
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={aluno.emAtencao ? "text-red-400" : undefined}>
+                      {mostrarNomes
+                        ? aluno.nome
+                        : `N ${String(aluno.numeroChamada).padStart(2, "0")}`}
+                    </span>
+                    {aluno.preReprovado && (
+                      <span
+                        title="Pré-Reprovado: 3 ou mais disciplinas em risco pela média acumulada do ano"
+                        className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                        style={{ background: "var(--status-danger-solid)", color: "#FFFFFF" }}
+                      >
+                        PR
+                      </span>
+                    )}
+                  </span>
                 </td>
                 {aluno.disciplinas.map((d) => (
                   <td
                     key={d.disciplinaId}
-                    className="border border-zinc-800 p-2 text-center"
+                    className="border p-2 text-center"
+                    style={{ borderColor: "var(--border-subtle)" }}
                     title={d.disciplinaNome}
                   >
-                    <div className={`rounded-xl px-2 py-1.5 font-black ring-1 ${getClasseNota(d.nota)}`}>
+                    <div
+                      className="rounded-xl px-2 py-1.5 font-black"
+                      style={getStyleNota(d.nota)}
+                    >
                       {d.nota ?? "-"}
                     </div>
                   </td>
                 ))}
-                <td className="border border-zinc-800 p-2 text-center">
-                  <div className={`rounded-xl px-2 py-1.5 text-base font-black ring-1 ${getClasseNota(aluno.media)}`}>
+                <td
+                  className="border p-2 text-center"
+                  style={{ borderColor: "var(--border-subtle)" }}
+                >
+                  <div
+                    className="rounded-xl px-2 py-1.5 text-base font-black"
+                    style={getStyleNota(aluno.media)}
+                  >
                     {aluno.media !== null ? aluno.media.toFixed(1) : "-"}
                   </div>
                 </td>
@@ -257,23 +358,35 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
       </div>
 
       <div className="relative z-10 mt-6 flex flex-wrap gap-3">
-        <Legenda cor="bg-red-500" texto="1-4 Abaixo do Básico" />
-        <Legenda cor="bg-yellow-500" texto="5-6 Básico" />
+        <Legenda cor="bg-red-500" texto="1-4 Abaixo do Basico" />
+        <Legenda cor="bg-yellow-500" texto="5-6 Basico" />
         <Legenda cor="bg-green-500" texto="7-8 Adequado" />
-        <Legenda cor="bg-blue-500" texto="9-10 Avançado" />
+        <Legenda cor="bg-blue-500" texto="9-10 Avancado" />
       </div>
 
-      <div className="relative z-10 mt-5 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
-        <p className="font-bold text-zinc-200">
-          Legenda — {turmaAtual.turmaNome}:
+      <div
+        className="relative z-10 mt-5 rounded-2xl border p-5"
+        style={{
+          borderColor: "var(--border-subtle)",
+          background: "var(--bg-app)",
+        }}
+      >
+        <p className="font-bold" style={{ color: "var(--text-primary)" }}>
+          Legenda - {turmaAtual.turmaNome}:
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {turmaAtual.disciplinas.map((d) => (
             <span
               key={d.id}
-              className="rounded-xl border border-zinc-700 bg-zinc-950/70 px-3 py-1.5 text-sm text-zinc-300"
+              className="rounded-xl border px-3 py-1.5 text-sm"
+              style={{
+                borderColor: "var(--border-subtle)",
+                background: "var(--bg-card)",
+                color: "var(--text-secondary)",
+              }}
             >
-              <strong className="text-white">{d.codigo.replace("C", "")}:</strong> {d.nome}
+              <strong style={{ color: "var(--text-primary)" }}>{d.codigo.replace("C", "")}:</strong>{" "}
+              {d.nome}
             </span>
           ))}
         </div>
@@ -284,9 +397,17 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
 
 function Legenda({ cor, texto }: { cor: string; texto: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-2 shadow-lg">
+    <div
+      className="flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-lg"
+      style={{
+        borderColor: "var(--border-subtle)",
+        background: "var(--bg-app)",
+      }}
+    >
       <div className={`h-4 w-4 rounded ${cor}`} />
-      <span className="text-sm font-bold text-zinc-300">{texto}</span>
+      <span className="text-sm font-bold" style={{ color: "var(--text-secondary)" }}>
+        {texto}
+      </span>
     </div>
   );
 }

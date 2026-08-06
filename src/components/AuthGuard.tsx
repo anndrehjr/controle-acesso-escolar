@@ -30,7 +30,10 @@ export default function AuthGuard({ children, allow = [...ROLES] }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-white">
+      <div
+        className="flex items-center justify-center min-h-screen"
+        style={{ background: "var(--bg-app)", color: "var(--text-secondary)" }}
+      >
         Carregando...
       </div>
     );

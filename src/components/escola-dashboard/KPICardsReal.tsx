@@ -14,6 +14,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import Link from "next/link";
+import InfoTooltip from "../InfoTooltip";
 
 type AlunoDestaque = {
   id: string;
@@ -47,6 +48,14 @@ function rotulo(aluno: AlunoDestaque, mostrarNomes: boolean) {
   return `Nº ${String(aluno.numeroChamada).padStart(2, "0")}`;
 }
 
+const cardStyle: React.CSSProperties = {
+  background: "var(--bg-card)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-sm)",
+  boxShadow: "var(--shadow-card)",
+  padding: "var(--space-4)",
+};
+
 export default function KPICardsReal({
   totalAlunos,
   totalTurmas,
@@ -74,54 +83,60 @@ export default function KPICardsReal({
       valor: totalAlunos,
       subtitulo: `${totalTurmas} turmas ativas`,
       Icone: Users,
-      cor: "text-white",
-      fundo: "bg-zinc-800/80",
-      brilho: "bg-white/5",
+      iconColor: "var(--brand-primary)",
+      iconBg: "var(--bg-sidebar-active)",
+      valueColor: "var(--text-primary)",
+      descricao: "Quantidade de alunos com matrícula ativa (status ATIVO) no recorte selecionado. Alunos transferidos ou inativos não entram na contagem.",
     },
     {
       titulo: "Média Geral",
       valor: mediaGeral.toFixed(1),
       subtitulo: "Média dos alunos ativos",
       Icone: Target,
-      cor: "text-yellow-300",
-      fundo: "bg-yellow-500/10",
-      brilho: "bg-yellow-500/10",
+      iconColor: "#7A5800",
+      iconBg: "var(--status-warning-tint)",
+      valueColor: "var(--text-primary)",
+      descricao: "Média aritmética de todas as notas lançadas para alunos ativos no recorte selecionado (turma/bimestre/ano). Não é o critério que define aluno crítico — isso depende da quantidade de disciplinas em risco por aluno.",
     },
     {
-      titulo: "Alunos Críticos",
+      titulo: "Alunos Pré-Reprovados",
       valor: alunosCriticos,
       subtitulo: `${alunosAbaixoBasico} abaixo do básico`,
       Icone: AlertTriangle,
-      cor: "text-red-300",
-      fundo: "bg-red-500/10",
-      brilho: "bg-red-500/10",
+      iconColor: "#FFFFFF",
+      iconBg: "var(--status-danger-bg)",
+      valueColor: "var(--status-danger-bg)",
+      descricao: "Alunos com 3 ou mais disciplinas em risco (média abaixo de 5, ou soma insuficiente no fechamento do 4º bimestre). É esse aluno que vai a conselho de classe.",
     },
     {
       titulo: "Adequado + Avançado",
       valor: `${percentualAdequado.toFixed(1)}%`,
       subtitulo: `${totalAdequadosOuAvancados} estudantes`,
       Icone: GraduationCap,
-      cor: "text-green-300",
-      fundo: "bg-green-500/10",
-      brilho: "bg-green-500/10",
+      iconColor: "#FFFFFF",
+      iconBg: "var(--status-success-bg)",
+      valueColor: "var(--status-success-bg)",
+      descricao: "Percentual de alunos com média igual ou acima de 7,0 (nível adequado ou avançado), sobre o total de alunos com nota lançada no recorte.",
     },
     {
       titulo: "Disciplina Crítica",
       valor: disciplinaCritica,
       subtitulo: `${disciplinaCriticaPercentual.toFixed(0)}% abaixo do básico`,
       Icone: BookOpen,
-      cor: "text-red-300",
-      fundo: "bg-red-500/10",
-      brilho: "bg-red-500/10",
+      iconColor: "#FFFFFF",
+      iconBg: "var(--brand-accent-red)",
+      valueColor: "var(--brand-accent-red)",
+      descricao: "A disciplina com o maior percentual de notas abaixo de 5,0 no recorte selecionado. Ajuda a identificar onde o reforço pedagógico é mais urgente.",
     },
     {
       titulo: "Pontos de Atenção",
       valor: alunosAtencao,
       subtitulo: "Alunos sinalizados",
       Icone: AlertCircle,
-      cor: "text-yellow-300",
-      fundo: "bg-yellow-500/10",
-      brilho: "bg-yellow-500/10",
+      iconColor: "#7A5800",
+      iconBg: "var(--status-warning-tint)",
+      valueColor: "#7A5800",
+      descricao: "Alunos com 1 ou 2 disciplinas em risco — abaixo do limite de 3 que caracteriza situação crítica, mas que já merecem acompanhamento.",
     },
   ];
 
@@ -131,7 +146,14 @@ export default function KPICardsReal({
         <div className="flex justify-end">
           <button
             onClick={() => setMostrarNomes((v) => !v)}
-            className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+            className="flex items-center gap-2 px-4 py-2 text-sm transition"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-card)",
+              color: "var(--text-secondary)",
+              fontWeight: "var(--font-weight-medium)",
+            }}
           >
             {mostrarNomes ? (
               <>
@@ -150,27 +172,34 @@ export default function KPICardsReal({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cardsBase.map((card) => (
-          <div
-            key={card.titulo}
-            className="group relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20"
-          >
-            <div className={`absolute -right-16 -top-16 h-40 w-40 rounded-full ${card.brilho} blur-3xl transition group-hover:opacity-100`} />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
-
-            <div className="relative z-10 flex items-start justify-between gap-4">
-              <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+          <div key={card.titulo} style={cardStyle}>
+            <div className="flex items-start justify-between gap-4">
+              <p
+                className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
+                style={{ color: "var(--text-secondary)" }}
+              >
                 {card.titulo}
+                <InfoTooltip texto={card.descricao} align="start" />
               </p>
-              <div className={`rounded-2xl border border-zinc-700/60 p-3 ${card.fundo}`}>
-                <card.Icone className={`h-5 w-5 ${card.cor}`} />
+              <div
+                className="flex items-center justify-center shrink-0 p-2"
+                style={{
+                  background: card.iconBg,
+                  borderRadius: "var(--radius-sm)",
+                }}
+              >
+                <card.Icone className="h-4 w-4" style={{ color: card.iconColor }} />
               </div>
             </div>
 
-            <h2 className={`relative z-10 mt-7 truncate text-3xl font-black tracking-tight md:text-4xl ${card.cor}`}>
+            <h2
+              className="mt-4 truncate text-2xl tracking-tight"
+              style={{ color: card.valueColor, fontWeight: 600 }}
+            >
               {card.valor}
             </h2>
 
-            <p className="relative z-10 mt-2 text-sm font-medium text-zinc-500">
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
               {card.subtitulo}
             </p>
           </div>
@@ -179,16 +208,23 @@ export default function KPICardsReal({
         {turmaFiltrada ? (
           <>
             {/* Destaque da Turma */}
-            <div className="group relative overflow-hidden rounded-3xl border border-green-900/40 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-green-700/40">
-              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-green-500/10 blur-3xl transition group-hover:opacity-100" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
-
-              <div className="relative z-10 flex items-start justify-between gap-4">
-                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+            <div style={cardStyle}>
+              <div className="flex items-start justify-between gap-4">
+                <p
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Destaque da Turma
+                  <InfoTooltip
+                    align="start"
+                    texto="O aluno com a maior média entre todas as disciplinas, considerando apenas as notas já lançadas nesta turma."
+                  />
                 </p>
-                <div className="rounded-2xl border border-zinc-700/60 p-3 bg-green-500/10">
-                  <TrendingUp className="h-5 w-5 text-green-300" />
+                <div
+                  className="flex items-center justify-center shrink-0 p-2"
+                  style={{ background: "var(--status-success-tint)", borderRadius: "var(--radius-sm)" }}
+                >
+                  <TrendingUp className="h-4 w-4" style={{ color: "var(--status-success-bg)" }} />
                 </div>
               </div>
 
@@ -196,89 +232,138 @@ export default function KPICardsReal({
                 <>
                   <Link
                     href={`/dashboard/aluno/${melhorAluno.id}`}
-                    className="relative z-10 mt-7 block truncate text-2xl font-black tracking-tight text-green-300 hover:underline md:text-3xl"
+                    className="mt-4 block truncate text-lg hover:underline"
+                    style={{ color: "var(--status-success-bg)", fontWeight: 600 }}
                   >
                     {rotulo(melhorAluno, mostrarNomes)}
                   </Link>
-                  <p className="relative z-10 mt-2 text-sm font-medium text-zinc-500">
+                  <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                     Média {melhorAluno.media?.toFixed(1) ?? "-"} · melhor da sala
                   </p>
                 </>
               ) : (
-                <p className="relative z-10 mt-7 text-zinc-500">Sem dados</p>
+                <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Sem dados
+                </p>
               )}
             </div>
 
             {/* Alertas da Turma */}
-            <div className="group relative overflow-hidden rounded-3xl border border-red-900/40 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-red-700/40">
-              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-red-500/10 blur-3xl transition group-hover:opacity-100" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
-
-              <div className="relative z-10 flex items-start justify-between gap-4">
-                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
+            <div style={cardStyle}>
+              <div className="flex items-start justify-between gap-4">
+                <p
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   Alertas da Turma
+                  <InfoTooltip
+                    align="start"
+                    texto="Os alunos com as menores médias desta turma, considerando apenas as notas já lançadas. Não é necessariamente a lista de alunos pré-reprovados — veja o card Alunos Pré-Reprovados para esse critério."
+                  />
                 </p>
-                <div className="rounded-2xl border border-zinc-700/60 p-3 bg-red-500/10">
-                  <TrendingDown className="h-5 w-5 text-red-300" />
+                <div
+                  className="flex items-center justify-center shrink-0 p-2"
+                  style={{ background: "var(--status-danger-tint)", borderRadius: "var(--radius-sm)" }}
+                >
+                  <TrendingDown className="h-4 w-4" style={{ color: "var(--status-danger-bg)" }} />
                 </div>
               </div>
 
               {pioresAlunos.length > 0 ? (
-                <ul className="relative z-10 mt-5 space-y-2">
+                <ul className="mt-4 space-y-2">
                   {pioresAlunos.map((a, idx) => (
                     <li key={a.id} className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-red-900/50 bg-red-950/60 text-xs font-black text-red-400">
+                      <span
+                        className="flex h-5 w-5 shrink-0 items-center justify-center text-xs font-semibold"
+                        style={{
+                          background: "var(--status-danger-tint)",
+                          color: "var(--status-danger-bg)",
+                          borderRadius: "var(--radius-sm)",
+                        }}
+                      >
                         {idx + 1}
                       </span>
                       <Link
                         href={`/dashboard/aluno/${a.id}`}
-                        className="min-w-0 flex-1 truncate text-sm font-bold text-red-200 hover:underline"
+                        className="min-w-0 flex-1 truncate text-sm hover:underline"
+                        style={{ color: "var(--status-danger-bg)", fontWeight: "var(--font-weight-medium)" }}
                       >
                         {rotulo(a, mostrarNomes)}
                       </Link>
-                      <span className="shrink-0 text-sm font-black text-red-400">
+                      <span
+                        className="shrink-0 text-sm"
+                        style={{ color: "var(--status-danger-bg)", fontWeight: 600 }}
+                      >
                         {a.media?.toFixed(1) ?? "-"}
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="relative z-10 mt-7 text-zinc-500">Sem dados</p>
+                <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+                  Sem dados
+                </p>
               )}
             </div>
           </>
         ) : (
           <>
-            <div className="group relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20">
-              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-green-500/10 blur-3xl" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
-              <div className="relative z-10 flex items-start justify-between gap-4">
-                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Melhor Turma</p>
-                <div className="rounded-2xl border border-zinc-700/60 p-3 bg-green-500/10">
-                  <TrendingUp className="h-5 w-5 text-green-300" />
+            <div style={cardStyle}>
+              <div className="flex items-start justify-between gap-4">
+                <p
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Melhor Turma
+                  <InfoTooltip
+                    align="start"
+                    texto="A turma com a maior média geral entre as turmas visíveis para você neste recorte de bimestre/ano letivo."
+                  />
+                </p>
+                <div
+                  className="flex items-center justify-center shrink-0 p-2"
+                  style={{ background: "var(--status-success-tint)", borderRadius: "var(--radius-sm)" }}
+                >
+                  <TrendingUp className="h-4 w-4" style={{ color: "var(--status-success-bg)" }} />
                 </div>
               </div>
-              <h2 className="relative z-10 mt-7 truncate text-3xl font-black tracking-tight text-green-300 md:text-4xl">
+              <h2
+                className="mt-4 truncate text-xl"
+                style={{ color: "var(--status-success-bg)", fontWeight: 600 }}
+              >
                 {melhorTurma}
               </h2>
-              <p className="relative z-10 mt-2 text-sm font-medium text-zinc-500">
+              <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                 Média {melhorTurmaMedia.toFixed(1)}
               </p>
             </div>
 
-            <div className="group relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-white/20">
-              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-red-500/10 blur-3xl" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
-              <div className="relative z-10 flex items-start justify-between gap-4">
-                <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Turma em Alerta</p>
-                <div className="rounded-2xl border border-zinc-700/60 p-3 bg-red-500/10">
-                  <TrendingDown className="h-5 w-5 text-red-300" />
+            <div style={cardStyle}>
+              <div className="flex items-start justify-between gap-4">
+                <p
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Turma em Alerta
+                  <InfoTooltip
+                    align="start"
+                    texto="A turma com a menor média geral entre as turmas visíveis para você neste recorte de bimestre/ano letivo — a que mais precisa de atenção pedagógica agora."
+                  />
+                </p>
+                <div
+                  className="flex items-center justify-center shrink-0 p-2"
+                  style={{ background: "var(--status-danger-tint)", borderRadius: "var(--radius-sm)" }}
+                >
+                  <TrendingDown className="h-4 w-4" style={{ color: "var(--status-danger-bg)" }} />
                 </div>
               </div>
-              <h2 className="relative z-10 mt-7 truncate text-3xl font-black tracking-tight text-red-300 md:text-4xl">
+              <h2
+                className="mt-4 truncate text-xl"
+                style={{ color: "var(--status-danger-bg)", fontWeight: 600 }}
+              >
                 {turmaAlerta}
               </h2>
-              <p className="relative z-10 mt-2 text-sm font-medium text-zinc-500">
+              <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                 Média {turmaAlertaMedia.toFixed(1)}
               </p>
             </div>

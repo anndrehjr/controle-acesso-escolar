@@ -28,11 +28,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const escolaId = params.escola ?? ESCOLA_PADRAO;
   if (!escolaId) {
     return (
-      <main className="min-h-screen bg-zinc-900 p-8 text-white flex items-center justify-center">
+      <main className="min-h-screen p-8 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-400">Nenhuma escola selecionada</h1>
-          <p className="mt-2 text-zinc-400">
-            Acesse /dashboard/escolas/[id] ou defina NEXT_PUBLIC_ESCOLA_ID.
+          <h1
+            className="text-2xl font-semibold"
+            style={{ color: "var(--status-danger-bg)" }}
+          >
+            Escola não encontrada
+          </h1>
+          <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Verifique NEXT_PUBLIC_ESCOLA_ID no .env.local
           </p>
         </div>
       </main>

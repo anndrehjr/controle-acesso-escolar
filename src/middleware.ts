@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyToken, signToken, sessionMaxAgeSeconds } from './lib/auth'
+export const runtime = 'nodejs'
 
 const PUBLIC_API_PREFIXES = ['/api/auth']
 
@@ -25,8 +26,20 @@ export async function middleware(request: NextRequest) {
     return res
   }
 
-  // Sessão deslizante: cada requisição autenticada renova o cookie por mais uma janela
-  // (8h padrão, 30d se "lembrar acesso" foi marcado no login) — expira mesmo é por inatividade.
+  // Troca de senha obrigatória (F-Final/4): bloqueia qualquer outra coisa até o usuário trocar
+  // a senha temporária/redefinida. /api/auth/* já é público (bypass acima) e cobre logout e a
+  // própria rota de troca de senha, então este usuário nunca fica preso sem conseguir sair.
+  const isTrocarSenhaPage = pathname === '/trocar-senha'
+  if (payload.deve_trocar_senha && !isTrocarSenhaPage) {
+    if (isApi) {
+      return NextResponse.json(
+        { error: 'Troca de senha obrigatória antes de continuar', trocarSenhaObrigatoria: true },
+        { status: 403 }
+      )
+    }
+    return NextResponse.redirect(new URL('/trocar-senha', request.url))
+  }
+
   const lembrar = payload.lembrar ?? false
   const refreshed = await signToken(payload, { lembrarAcesso: lembrar })
   const res = NextResponse.next()
@@ -41,5 +54,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*'],
+  matcher: ['/dashboard/:path*', '/api/:path*', '/analytics/:path*', '/trocar-senha'],
 }

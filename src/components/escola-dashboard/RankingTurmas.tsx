@@ -1,4 +1,5 @@
 import Link from "next/link";
+import InfoTooltip from "../InfoTooltip";
 
 type RankingItem = {
   turma: {
@@ -15,88 +16,143 @@ type Props = {
   basePath: string;
 };
 
+function getMediaColor(media: number): string {
+  if (media >= 7) return "var(--status-success-bg)";
+  if (media >= 5) return "#E8860C";
+  return "var(--status-danger-bg)";
+}
+
+function getBarColor(media: number): string {
+  if (media >= 7) return "var(--status-success-bg)";
+  if (media >= 5) return "var(--status-warning-bg)";
+  return "var(--status-danger-bg)";
+}
+
 function MediaBar({ media }: { media: number }) {
   const pct = Math.min(100, Math.max(0, (media / 10) * 100));
-  const cor =
-    media >= 7 ? "bg-green-500 shadow-green-500/30" :
-    media >= 5 ? "bg-amber-500 shadow-amber-500/30" :
-    "bg-red-500 shadow-red-500/30";
 
   return (
-    <div className="relative mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-800 ring-1 ring-zinc-700/40">
-      <div className="absolute left-1/2 top-0 z-10 h-full w-px bg-zinc-600" title="5,0" />
+    <div
+      className="relative mt-3 h-2 w-full overflow-hidden"
+      style={{ background: "var(--border-subtle)", borderRadius: "var(--radius-pill)" }}
+    >
       <div
-        className={`${cor} h-full rounded-full shadow-md transition-all duration-700`}
-        style={{ width: `${pct}%` }}
+        className="absolute left-1/2 top-0 z-10 h-full w-px"
+        style={{ background: "var(--text-secondary)", opacity: 0.4 }}
+        title="5,0"
+      />
+      <div
+        className="h-full transition-all duration-700"
+        style={{
+          width: `${pct}%`,
+          background: getBarColor(media),
+          borderRadius: "var(--radius-pill)",
+        }}
       />
     </div>
   );
 }
 
-const medalStyle = [
-  { bg: "bg-yellow-500/20 border-yellow-500/40 text-yellow-300", label: "1º" },
-  { bg: "bg-zinc-400/20 border-zinc-400/40 text-zinc-300",       label: "2º" },
-  { bg: "bg-orange-700/20 border-orange-700/40 text-orange-400", label: "3º" },
+const medalColors = [
+  { bg: "var(--status-warning-tint)", color: "#7A5800", border: "#F2B705" },
+  { bg: "var(--bg-app)", color: "var(--text-secondary)", border: "var(--border-subtle)" },
+  { bg: "var(--status-danger-tint)", color: "#BF360C", border: "#FF7043" },
 ];
 
 export default function RankingTurmas({ ranking, basePath }: Props) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-
-      <div className="relative z-10 mb-6">
-        <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
+    <div
+      className="p-6 md:p-8"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      <div className="mb-6">
+        <div
+          className="mb-2 inline-flex px-3 py-1 text-xs font-medium"
+          style={{
+            background: "var(--bg-app)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-pill)",
+            color: "var(--text-secondary)",
+          }}
+        >
           Desempenho por turma
         </div>
-        <h2 className="text-2xl font-black tracking-tight md:text-3xl">
+        <h2
+          className="flex items-center gap-1.5 text-lg tracking-tight"
+          style={{ color: "var(--text-primary)", fontWeight: 600 }}
+        >
           Ranking de Turmas
+          <InfoTooltip
+            align="start"
+            texto="Turmas ordenadas pela média geral de todas as notas lançadas no recorte selecionado. A linha vertical na barra marca 5,0 — a referência mínima de aprovação por bimestre."
+          />
         </h2>
-        <p className="mt-2 text-sm text-zinc-400 md:text-base">
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Classificação por média geral · linha central = 5,0
         </p>
       </div>
 
-      <div className="relative z-10 space-y-4">
+      <div className="space-y-3">
         {ranking.map((item, index) => {
-          const medal = index < 3 ? medalStyle[index] : null;
-
-          const destaque =
-            index === 0
-              ? "border-green-500/40 bg-green-500/10"
-              : item.media < 6
-              ? "border-red-500/40 bg-red-500/10"
-              : "border-zinc-800 bg-zinc-900/70";
-
-          const corMedia =
-            item.media >= 7 ? "text-green-300" :
-            item.media >= 5 ? "text-amber-300" :
-            "text-red-300";
+          const medal = index < 3 ? medalColors[index] : null;
 
           return (
             <div
               key={item.turma.id}
-              className={`rounded-3xl border p-5 shadow-lg transition hover:-translate-y-0.5 hover:border-white/20 ${destaque}`}
+              className="p-4 transition"
+              style={{
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-sm)",
+                background: index === 0 ? "var(--status-success-tint)" : "var(--bg-app)",
+              }}
             >
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-4">
                   <div
-                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border text-lg font-black shadow-xl ${
-                      medal ? medal.bg : "border-zinc-700 bg-zinc-950 text-zinc-400"
-                    }`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center text-sm font-semibold"
+                    style={{
+                      background: medal ? medal.bg : "var(--bg-card)",
+                      border: `1px solid ${medal ? medal.border : "var(--border-subtle)"}`,
+                      borderRadius: "var(--radius-sm)",
+                      color: medal ? medal.color : "var(--text-secondary)",
+                    }}
                   >
-                    {medal ? medal.label : `${index + 1}º`}
+                    {index + 1}º
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-xl font-black tracking-tight text-white md:text-2xl">
+                    <h3
+                      className="text-base tracking-tight"
+                      style={{ color: "var(--text-primary)", fontWeight: 600 }}
+                    >
                       {item.turma.nome}
                     </h3>
-                    <div className="mt-1.5 flex flex-wrap gap-2 text-sm">
-                      <span className="rounded-full border border-zinc-700 bg-black/20 px-3 py-0.5 font-semibold text-zinc-300">
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                      <span
+                        className="px-2.5 py-0.5 font-medium"
+                        style={{
+                          borderRadius: "var(--radius-pill)",
+                          border: "1px solid var(--border-subtle)",
+                          color: "var(--text-secondary)",
+                          background: "var(--bg-card)",
+                        }}
+                      >
                         {item.turma.total_ativos} alunos
                       </span>
-                      <span className="rounded-full border border-zinc-700 bg-black/20 px-3 py-0.5 font-semibold text-zinc-300">
+                      <span
+                        className="px-2.5 py-0.5 font-medium"
+                        style={{
+                          borderRadius: "var(--radius-pill)",
+                          border: "1px solid var(--border-subtle)",
+                          color: "var(--text-secondary)",
+                          background: "var(--bg-card)",
+                        }}
+                      >
                         {item.totalNotas} notas
                       </span>
                     </div>
@@ -104,23 +160,47 @@ export default function RankingTurmas({ ranking, basePath }: Props) {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl border border-zinc-700 bg-black/20 px-5 py-3 text-center">
-                    <h2 className={`text-4xl font-black tracking-tight ${corMedia}`}>
+                  <div
+                    className="px-4 py-2.5 text-center"
+                    style={{
+                      border: "1px solid var(--border-subtle)",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--bg-card)",
+                    }}
+                  >
+                    <h2
+                      className="text-3xl tracking-tight"
+                      style={{ color: getMediaColor(item.media), fontWeight: 600 }}
+                    >
                       {item.media.toFixed(1)}
                     </h2>
-                    <span className="text-xs font-semibold text-zinc-500">média</span>
+                    <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                      média
+                    </span>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <Link
                       href={`${basePath}?turma=${item.turma.id}&tab=comparativo`}
-                      className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-xs font-bold text-zinc-300 transition hover:border-white/40 hover:bg-zinc-800 hover:text-white"
+                      className="px-3 py-1.5 text-center text-xs font-medium transition"
+                      style={{
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-sm)",
+                        color: "var(--text-secondary)",
+                        background: "var(--bg-card)",
+                      }}
                     >
                       B1 × B2
                     </Link>
                     <Link
                       href={`${basePath}?turma=${item.turma.id}&tab=heatmap`}
-                      className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-xs font-bold text-zinc-300 transition hover:border-indigo-500/40 hover:bg-indigo-950/20 hover:text-indigo-300"
+                      className="px-3 py-1.5 text-center text-xs font-medium transition"
+                      style={{
+                        border: "1px solid var(--border-subtle)",
+                        borderRadius: "var(--radius-sm)",
+                        color: "var(--text-link)",
+                        background: "var(--bg-sidebar-active)",
+                      }}
                     >
                       Heatmap
                     </Link>
@@ -135,7 +215,14 @@ export default function RankingTurmas({ ranking, basePath }: Props) {
       </div>
 
       {ranking.length === 0 && (
-        <div className="relative z-10 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8 text-center text-zinc-400">
+        <div
+          className="p-8 text-center text-sm"
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--text-secondary)",
+          }}
+        >
           Nenhum dado de ranking encontrado.
         </div>
       )}

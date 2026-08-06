@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
-import { buildAlertas } from "../../../../lib/analytics/buildAlertas";
+import { buildRiscoAcademico } from "../../../../lib/analytics/buildRiscoAcademico";
 import { cache } from "../../../../lib/cache";
 import { resolveEscolaAccess, podeVerTurma } from "../../../../lib/permissions";
 import type {
@@ -87,9 +87,16 @@ export async function GET(request: Request) {
     };
 
     const pontos = [1, 2, 3, 4].map((bimestre) => {
-      // Filter notes to this bimestre for both dashboard and alertas
+      // Visão do bimestre isolado, pra média/percentual desse ponto do gráfico
       const notasBim = todasNotas.filter(
         (n) => Number(n.bimestre) === bimestre && Number(n.ano_letivo) === anoLetivo
+      );
+
+      // Risco acadêmico é cumulativo: usa tudo que já foi lançado até este bimestre (checkpoint),
+      // mesma regra usada no dashboard principal — assim o gráfico mostra a evolução real do risco
+      // no ano, não um snapshot isolado de cada bimestre.
+      const notasAte = todasNotas.filter(
+        (n) => Number(n.bimestre) <= bimestre && Number(n.ano_letivo) === anoLetivo
       );
 
       const dashboard = buildSchoolDashboard({
@@ -103,8 +110,13 @@ export async function GET(request: Request) {
 
       const temDados = dashboard.notasValidas.length > 0;
 
-      // Same rule as SSR: 4+ disciplines < 5 = crítico
-      const alertas = buildAlertas({ alunos, notas: notasBim, turmas, disciplinas, matriz });
+      const alertas = buildRiscoAcademico({
+        alunos,
+        notas: notasAte,
+        turmas,
+        disciplinas,
+        matriz,
+      });
 
       return {
         bimestre,
