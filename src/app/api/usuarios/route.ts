@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../lib/auth";
 import db from "../../../lib/db";
 import { cache } from "../../../lib/cache";
-import { capabilitiesFor } from "../../../types/roles";
+import { capabilitiesFor, isRole, papeisAtribuiveisPor } from "../../../types/roles";
 import { registrarAuditoria } from "../../../lib/audit";
 
 export async function GET(request: Request) {
@@ -69,11 +69,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Nome, e-mail e papel são obrigatórios" }, { status: 400 });
   }
 
-  // ADMIN_ESCOLA só cria usuários na própria escola, e nunca SUPER_ADMIN.
+  // ADMIN_ESCOLA (Direção/Coordenação) só cria usuários na própria escola.
   const escolaFinal = capabilitiesFor(perfil.role).viewAllEscolas ? (escolaId ?? null) : perfil.escola_id;
 
-  if (role === "SUPER_ADMIN" && perfil.role !== "SUPER_ADMIN") {
-    return NextResponse.json({ error: "Sem permissão para criar este papel" }, { status: 403 });
+  if (!isRole(role)) {
+    return NextResponse.json({ error: "Papel inválido" }, { status: 400 });
+  }
+  // Dev Master nunca é criado por essa rota genérica — é um usuário exclusivo, provisionado
+  // manualmente com fluxo próprio de senha temporária + troca obrigatória (F-Final/4 e /5).
+  // Ninguém pode criar/atribuir esse papel, nem outro Dev Master.
+  if (role === "DEV_MASTER") {
+    return NextResponse.json({ error: "Este papel não pode ser criado por aqui" }, { status: 403 });
+  }
+  // Escalada de privilégio: só pode atribuir um papel que esteja na lista do que o
+  // próprio perfil tem permissão de atribuir (nunca igual ou acima do seu nível).
+  if (!papeisAtribuiveisPor(perfil.role).includes(role)) {
+    return NextResponse.json({ error: "Sem permissão para atribuir este papel" }, { status: 403 });
   }
   if (!capabilitiesFor(perfil.role).viewAllEscolas && !escolaFinal) {
     return NextResponse.json({ error: "Escola obrigatória" }, { status: 400 });

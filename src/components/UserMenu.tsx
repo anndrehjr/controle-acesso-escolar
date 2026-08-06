@@ -6,13 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, User, Users, ScrollText } from "lucide-react";
 import { useUsuarioAtual } from "../hooks/useUsuarioAtual";
 import { logout } from "../services/auth";
-
-const NOME_PAPEL: Record<string, string> = {
-  SUPER_ADMIN: "Administrador geral",
-  ADMIN_ESCOLA: "Coordenador",
-  PROFESSOR: "Professor",
-  LEITOR: "Somente leitura",
-};
+import { NOME_PAPEL } from "../types/roles";
 
 const linkIconStyle: React.CSSProperties = {
   display: "flex",

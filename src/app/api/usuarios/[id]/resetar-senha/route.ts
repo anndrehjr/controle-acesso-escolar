@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { checkApiAuth } from "../../../../../lib/auth";
+import { checkApiAuth, isDevMaster } from "../../../../../lib/auth";
 import db from "../../../../../lib/db";
 import { capabilitiesFor, isRole } from "../../../../../types/roles";
 import { registrarAuditoria } from "../../../../../lib/audit";
@@ -43,16 +43,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "A nova senha precisa ter pelo menos 8 caracteres" }, { status: 400 });
   }
 
-  const rows = await db`SELECT id, email, role, escola_id FROM usuarios WHERE id = ${id} LIMIT 1`;
+  const rows = await db`SELECT id, email, role, escola_id, is_dev_master FROM usuarios WHERE id = ${id} LIMIT 1`;
   const alvo = rows[0];
   if (!alvo || !isRole(alvo.role)) {
     return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
   }
 
-  // ADMIN_ESCOLA só reseta senha de usuários da própria escola, e nunca de um SUPER_ADMIN.
+  // O Dev Master nunca pode ter a senha redefinida por outra pessoa (F-Final/4: "nunca poderá
+  // perder permissões") — só ele mesmo, via /api/auth/trocar-senha.
+  if (alvo.is_dev_master) {
+    return NextResponse.json({ error: "A senha do Dev Master só pode ser trocada por ele mesmo" }, { status: 403 });
+  }
+
+  // ADMIN_ESCOLA (Direção/Coordenação) só reseta senha de usuários da própria escola, e nunca
+  // de um Administrador Multi-Escolas (SUPER_ADMIN) ou Dev Master.
   const podeResetar =
+    isDevMaster(perfil) ||
     capabilitiesFor(perfil.role).viewAllEscolas ||
-    (perfil.escola_id === alvo.escola_id && alvo.role !== "SUPER_ADMIN");
+    (perfil.escola_id === alvo.escola_id && alvo.role !== "SUPER_ADMIN" && alvo.role !== "DEV_MASTER");
 
   if (!podeResetar) {
     return NextResponse.json({ error: "Sem permissão para redefinir a senha deste usuário" }, { status: 403 });

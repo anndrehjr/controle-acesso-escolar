@@ -9,6 +9,19 @@ export interface JWTPayload {
   role: Role
   escola_id: string | null
   nome: string
+  /**
+   * Identificador exclusivo do Dev Master (F-Final/5) — flag própria, separada do papel.
+   * Autorização de recursos exclusivos do Dev Master deve sempre checar isDevMaster(payload),
+   * nunca só `role === 'DEV_MASTER'`, para não depender só do nome do perfil.
+   */
+  is_dev_master?: boolean
+  /**
+   * Troca de senha obrigatória pendente (F-Final/4) — middleware redireciona pra /trocar-senha
+   * enquanto isso for true, embarcado no token pra não exigir consulta ao banco a cada request.
+   * Fica desatualizado só até o próximo refresh do token depois que a senha for trocada (a
+   * própria rota de troca já assina um token novo com essa flag em false).
+   */
+  deve_trocar_senha?: boolean
   /** Se a sessão foi criada com "lembrar acesso" — define a política de renovação/TTL */
   lembrar?: boolean
   /** Identificador único do token — permite revogar uma sessão específica no logout (F-04) */
@@ -110,4 +123,13 @@ export async function checkApiAuth(req: Request): Promise<JWTPayload | null> {
   const token = getTokenFromRequest(req)
   if (!token) return null
   return verifyToken(token)
+}
+
+/**
+ * Único jeito correto de checar se é o Dev Master (F-Final/5): exige o papel DEV_MASTER *e*
+ * a flag is_dev_master, nunca uma sozinha. Usar em qualquer recurso exclusivo do desenvolvedor
+ * (ferramentas internas, configurações globais) em vez de comparar `role === 'DEV_MASTER'`.
+ */
+export function isDevMaster(payload: JWTPayload | null): boolean {
+  return Boolean(payload && payload.role === 'DEV_MASTER' && payload.is_dev_master === true)
 }

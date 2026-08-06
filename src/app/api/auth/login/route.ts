@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const rows = await db`
-      SELECT id, nome, email, role, escola_id, senha_hash
+      SELECT id, nome, email, role, escola_id, senha_hash, is_dev_master, deve_trocar_senha
       FROM usuarios
       WHERE email = ${email.toLowerCase().trim()} AND ativo = true
       LIMIT 1
@@ -68,6 +68,8 @@ export async function POST(request: Request) {
       escola_id: usuario.escola_id as string | null,
       nome: usuario.nome as string,
       lembrar: Boolean(lembrarAcesso),
+      is_dev_master: Boolean(usuario.is_dev_master),
+      deve_trocar_senha: Boolean(usuario.deve_trocar_senha),
     }
 
     const token = await signToken(payload, { lembrarAcesso: Boolean(lembrarAcesso) })
@@ -80,6 +82,10 @@ export async function POST(request: Request) {
         role: usuario.role,
         escola_id: usuario.escola_id,
       },
+      // Frontend deve redirecionar pra /trocar-senha antes de qualquer outra coisa quando true
+      // (troca obrigatória no primeiro login — F-Final/4). O middleware também força isso no
+      // servidor, então mesmo pulando esse redirect no cliente a navegação é bloqueada.
+      deveTrocarSenha: Boolean(usuario.deve_trocar_senha),
     })
 
     response.cookies.set('auth_token', token, {

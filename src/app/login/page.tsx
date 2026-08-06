@@ -28,14 +28,14 @@ export default function LoginPage() {
     try {
       setCarregando(true);
 
-      const { usuario } = await login(email.trim(), senha, lembrarAcesso);
+      const { usuario, deveTrocarSenha } = await login(email.trim(), senha, lembrarAcesso);
 
       if (!isRole(usuario.role)) {
         setErro("Usuário sem permissão configurada. Fale com o administrador.");
         return;
       }
 
-      const destino = dashboardHomeFor(usuario.role, usuario.escola_id);
+      const destino = deveTrocarSenha ? "/trocar-senha" : dashboardHomeFor(usuario.role, usuario.escola_id);
       router.replace(destino);
       router.refresh();
     } catch (err) {
