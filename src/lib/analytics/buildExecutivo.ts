@@ -18,6 +18,8 @@ export type BimestreSnapshot = {
   atencao: number;
   /** Ids dos alunos em "atenção" nesse checkpoint — usado pra calcular quem entrou/saiu */
   atencaoIds: string[];
+  /** Ids dos alunos "pré-reprovados" (3+ disciplinas) nesse checkpoint */
+  criticoIds: string[];
   percentualAdequado: number | null;
 };
 
@@ -90,6 +92,7 @@ export function buildExecutivo({ alunos, turmas, disciplinas, matriz, todasNotas
       criticos: risco.criticos.length,
       atencao: risco.atencao.length,
       atencaoIds: risco.atencao.map((a) => a.alunoId),
+      criticoIds: risco.criticos.map((a) => a.alunoId),
       percentualAdequado: temDados ? Number(dash.percentualAdequado.toFixed(1)) : null,
     };
   });
@@ -117,6 +120,12 @@ export function buildExecutivo({ alunos, turmas, disciplinas, matriz, todasNotas
     : 0;
   const sairamDaAtencao = checkpointAnterior
     ? checkpointAnterior.atencaoIds.filter((id) => !(checkpointAtual?.atencaoIds ?? []).includes(id)).length
+    : 0;
+  const entraramNoCritico = checkpointAnterior
+    ? (checkpointAtual?.criticoIds ?? []).filter((id) => !checkpointAnterior.criticoIds.includes(id)).length
+    : 0;
+  const sairamDoCritico = checkpointAnterior
+    ? checkpointAnterior.criticoIds.filter((id) => !(checkpointAtual?.criticoIds ?? []).includes(id)).length
     : 0;
 
   // Ranking de disciplinas — sempre separado por nível de ensino.
@@ -195,6 +204,20 @@ export function buildExecutivo({ alunos, turmas, disciplinas, matriz, todasNotas
     atencao: riscoAtual.atencao.filter((a) => ids.has(a.turmaId)).length,
   });
 
+  // Matrícula atual — situação de agora, sem inventar quando cada transferência
+  // aconteceu (o banco não guarda a data disso, só o status atual do aluno).
+  const totalAtivos = alunos.filter((a) => a.status !== "TRANSFERIDO").length;
+  const totalTransferidos = alunos.filter((a) => a.status === "TRANSFERIDO").length;
+  const matriculaPorTurma = turmas
+    .map((t) => ({
+      id: t.id,
+      nome: t.nome,
+      ativos: alunos.filter((a) => a.turma_id === t.id && a.status !== "TRANSFERIDO").length,
+      transferidos: alunos.filter((a) => a.turma_id === t.id && a.status === "TRANSFERIDO").length,
+    }))
+    .filter((t) => t.ativos > 0 || t.transferidos > 0)
+    .sort((a, b) => b.ativos - a.ativos);
+
   return {
     ultimoBimestreComDados,
     bimestresComDados,
@@ -204,6 +227,8 @@ export function buildExecutivo({ alunos, turmas, disciplinas, matriz, todasNotas
     mediaAnualAcumulada,
     entraramNaAtencao,
     sairamDaAtencao,
+    entraramNoCritico,
+    sairamDoCritico,
     rankingDisciplinasFundamental,
     rankingDisciplinasMedio,
     rankingTurmas,
@@ -213,6 +238,9 @@ export function buildExecutivo({ alunos, turmas, disciplinas, matriz, todasNotas
     alunosAtencaoFundamental: contarPorNivel(idsTurmaFund).atencao,
     alunosCriticosMedio: contarPorNivel(idsTurmaMedio).criticos,
     alunosAtencaoMedio: contarPorNivel(idsTurmaMedio).atencao,
+    totalAtivos,
+    totalTransferidos,
+    matriculaPorTurma,
   };
 }
 

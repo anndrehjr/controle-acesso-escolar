@@ -6,6 +6,8 @@ import InfoTooltip from "../InfoTooltip";
 import Modal from "../Modal";
 import MediaGeralModal from "./MediaGeralModal";
 import ZonaAtencaoModal from "./ZonaAtencaoModal";
+import PreReprovadosModal from "./PreReprovadosModal";
+import TotalAlunosModal from "./TotalAlunosModal";
 import RankingDisciplinasModal from "./RankingDisciplinasModal";
 import RankingTurmasModal from "./RankingTurmasModal";
 import EvolucaoTurmasModal from "./EvolucaoTurmasModal";
@@ -16,7 +18,16 @@ type Props = {
   totalAlunos: number;
 };
 
-type ModalAberto = "media" | "atencao" | "melhorDisciplina" | "piorDisciplina" | "melhorTurma" | "evolucaoTurmas" | null;
+type ModalAberto =
+  | "media"
+  | "totalAlunos"
+  | "preReprovados"
+  | "atencao"
+  | "melhorDisciplina"
+  | "piorDisciplina"
+  | "melhorTurma"
+  | "evolucaoTurmas"
+  | null;
 
 function corMedia(m: number) {
   if (m < 5) return "#ef4444";
@@ -105,21 +116,21 @@ export default function ResumoCards({ executivo, totalAlunos }: Props) {
           <p className="mt-3 text-xs font-semibold pt-3" style={{ color: deltaCor, ...sep }}>{deltaLabel}</p>
         </CardClicavel>
 
-        <CardClicavel>
+        <CardClicavel onClick={() => setModalAberto("totalAlunos")}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>Total de Alunos</p>
             <Users className="h-5 w-5" style={{ color: "var(--brand-primary)" }} />
           </div>
           <p className="text-4xl font-black" style={{ color: "var(--text-primary)" }}>{totalAlunos}</p>
           <p className="mt-1 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>alunos ativos</p>
-          <p className="mt-3 text-xs pt-3" style={{ color: "var(--text-secondary)", ...sep }}>{executivo.alunosAtencaoGeral} em zona de atenção</p>
+          <p className="mt-3 text-xs pt-3" style={{ color: "var(--text-secondary)", ...sep }}>Ver matrícula: ativos x transferidos</p>
         </CardClicavel>
 
-        <CardClicavel>
+        <CardClicavel onClick={() => setModalAberto("preReprovados")}>
           <div className="flex items-center justify-between mb-3">
             <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-secondary)" }}>
               Alunos Pré-Reprovados
-              <InfoTooltip align="start" texto="Alunos com 3 ou mais disciplinas em risco (média abaixo de 5). Separado por nível de ensino, com o total geral da escola." />
+              <InfoTooltip align="start" texto="Alunos com 3 ou mais disciplinas em risco (média abaixo de 5). Separado por nível de ensino, com o total geral da escola. Clique para ver a evolução." />
             </p>
             <AlertTriangle className="h-5 w-5" style={{ color: executivo.alunosCriticosGeral > 0 ? "#ef4444" : "#22c55e" }} />
           </div>
@@ -198,6 +209,24 @@ export default function ResumoCards({ executivo, totalAlunos }: Props) {
         subtitulo="Evolução da média da escola ao longo do ano"
       >
         <MediaGeralModal executivo={executivo} />
+      </Modal>
+
+      <Modal
+        aberto={modalAberto === "totalAlunos"}
+        onFechar={() => setModalAberto(null)}
+        titulo="Total de Alunos"
+        subtitulo="Situação atual da matrícula"
+      >
+        <TotalAlunosModal executivo={executivo} />
+      </Modal>
+
+      <Modal
+        aberto={modalAberto === "preReprovados"}
+        onFechar={() => setModalAberto(null)}
+        titulo="Alunos Pré-Reprovados"
+        subtitulo="Evolução ao longo do ano, por nível de ensino"
+      >
+        <PreReprovadosModal executivo={executivo} />
       </Modal>
 
       <Modal

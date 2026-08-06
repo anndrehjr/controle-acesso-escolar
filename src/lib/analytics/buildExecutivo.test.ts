@@ -191,3 +191,50 @@ test("gerarObservacoes: com 4 bimestres, gera analise anual (nao fica preso no 1
   const obs = gerarObservacoes(resultado);
   assert.ok(obs.some((o) => o.toLowerCase().includes("ao longo do ano")), "deveria gerar analise anual: " + JSON.stringify(obs));
 });
+
+test("conta quem entrou e quem saiu da pre-reprovacao (3+ disciplinas) entre os dois ultimos checkpoints", () => {
+  const alunos = [aluno("a1", "t-ef"), aluno("a2", "t-ef")];
+  const disciplinas: Disciplina[] = [
+    { id: "d1", nome: "D1" },
+    { id: "d2", nome: "D2" },
+    { id: "d3", nome: "D3" },
+  ];
+  const matriz: MatrizDisciplina[] = disciplinas.map((d, i) => ({
+    id: `m${i}`, escola_id: "e1", etapa: "EF", codigo: `C0${i}`, disciplina_id: d.id, ativo: true,
+  }));
+  // a1: acumulado bim1 tem 3 disciplinas com media baixa (critico); acumulado bim1+bim2 recupera todas (sai do critico)
+  // a2: acumulado bim1 sem risco; acumulado bim1+bim2 fica com 3 disciplinas em risco (entra no critico)
+  const notas: Nota[] = [
+    nota("a1", "d1", "t-ef", 1, 2), nota("a1", "d1", "t-ef", 2, 9),
+    nota("a1", "d2", "t-ef", 1, 2), nota("a1", "d2", "t-ef", 2, 9),
+    nota("a1", "d3", "t-ef", 1, 2), nota("a1", "d3", "t-ef", 2, 9),
+    nota("a2", "d1", "t-ef", 1, 9), nota("a2", "d1", "t-ef", 2, 0),
+    nota("a2", "d2", "t-ef", 1, 9), nota("a2", "d2", "t-ef", 2, 0),
+    nota("a2", "d3", "t-ef", 1, 9), nota("a2", "d3", "t-ef", 2, 0),
+  ];
+
+  const resultado = buildExecutivo({
+    alunos, turmas: [turmaFund], disciplinas, matriz, todasNotas: notas, anoLetivo: 2026,
+  });
+
+  assert.equal(resultado.sairamDoCritico, 1, "a1 deveria sair da pre-reprovacao");
+  assert.equal(resultado.entraramNoCritico, 1, "a2 deveria entrar na pre-reprovacao");
+});
+
+test("matricula: separa ativos de transferidos sem inventar quando a transferencia aconteceu", () => {
+  const alunos = [
+    aluno("a1", "t-ef"),
+    aluno("a2", "t-ef", { status: "TRANSFERIDO" }),
+    aluno("a3", "t-ef"),
+  ];
+
+  const resultado = buildExecutivo({
+    alunos, turmas: [turmaFund], disciplinas: [MATEMATICA], matriz: MATRIZ, todasNotas: [], anoLetivo: 2026,
+  });
+
+  assert.equal(resultado.totalAtivos, 2);
+  assert.equal(resultado.totalTransferidos, 1);
+  const linhaTurma = resultado.matriculaPorTurma.find((t) => t.id === "t-ef");
+  assert.equal(linhaTurma?.ativos, 2);
+  assert.equal(linhaTurma?.transferidos, 1);
+});
