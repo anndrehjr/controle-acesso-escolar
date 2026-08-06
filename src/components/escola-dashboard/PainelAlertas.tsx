@@ -568,50 +568,20 @@ function DrawerContent({
 
         <div>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Média geral
+            Disciplinas em risco
           </p>
           <div className="mt-1 flex items-end gap-2">
             <span className="text-4xl" style={{ color: statusColor, fontWeight: 600 }}>
-              {aluno.mediaGeral !== null
-                ? aluno.mediaGeral.toFixed(1).replace(".", ",")
-                : "—"}
+              {aluno.totalDisciplinasRisco}
             </span>
             <span className="mb-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-              / 10,0
+              {aluno.totalDisciplinasRisco === 1 ? "disciplina pré-reprovada" : "disciplinas pré-reprovadas"}
             </span>
           </div>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
+            É essa contagem — não a média geral — que define o status do aluno: 3+ é Crítico, 1–2 é Atenção.
+          </p>
         </div>
-
-        {/* Mini progress */}
-        {aluno.mediaGeral !== null && (
-          <div className="mt-3">
-            <div
-              className="relative h-2 w-full overflow-hidden"
-              style={{ background: "var(--border-subtle)", borderRadius: "var(--radius-pill)" }}
-            >
-              <div
-                className="h-full transition-all duration-700"
-                style={{
-                  width: `${(aluno.mediaGeral / 10) * 100}%`,
-                  background: getBarColor(aluno.mediaGeral),
-                  borderRadius: "var(--radius-pill)",
-                }}
-              />
-              <div
-                className="absolute top-0 h-full w-px"
-                style={{ background: "var(--text-secondary)", opacity: 0.3, left: "50%" }}
-              />
-            </div>
-            <div
-              className="mt-1 flex justify-between text-xs"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <span>0</span>
-              <span>5,0 (mínimo)</span>
-              <span>10</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Disciplinas */}
