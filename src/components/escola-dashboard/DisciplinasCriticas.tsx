@@ -1,3 +1,5 @@
+import InfoTooltip from "../InfoTooltip";
+
 type DisciplinaItem = {
   disciplina: {
     id: string;
@@ -76,10 +78,14 @@ function GraficoDisciplinas({
           Análise curricular
         </div>
         <h2
-          className="text-lg tracking-tight"
+          className="flex items-center gap-1.5 text-lg tracking-tight"
           style={{ color: "var(--text-primary)", fontWeight: 600 }}
         >
           {titulo}
+          <InfoTooltip
+            align="start"
+            texto="Percentual de notas abaixo de 5,0 sobre o total de notas lançadas na disciplina, neste recorte. Faixas: Bom < 10%, Atenção 10-19%, Alerta 20-29%, Crítico ≥ 30%."
+          />
         </h2>
         <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {descricao}

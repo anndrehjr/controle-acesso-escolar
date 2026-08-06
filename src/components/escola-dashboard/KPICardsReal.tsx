@@ -14,6 +14,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import Link from "next/link";
+import InfoTooltip from "../InfoTooltip";
 
 type AlunoDestaque = {
   id: string;
@@ -85,6 +86,7 @@ export default function KPICardsReal({
       iconColor: "var(--brand-primary)",
       iconBg: "var(--bg-sidebar-active)",
       valueColor: "var(--text-primary)",
+      descricao: "Quantidade de alunos com matrícula ativa (status ATIVO) no recorte selecionado. Alunos transferidos ou inativos não entram na contagem.",
     },
     {
       titulo: "Média Geral",
@@ -94,6 +96,7 @@ export default function KPICardsReal({
       iconColor: "#7A5800",
       iconBg: "var(--status-warning-tint)",
       valueColor: "var(--text-primary)",
+      descricao: "Média aritmética de todas as notas lançadas para alunos ativos no recorte selecionado (turma/bimestre/ano). Não é o critério que define aluno crítico — isso depende da quantidade de disciplinas em risco por aluno.",
     },
     {
       titulo: "Alunos Críticos",
@@ -103,6 +106,7 @@ export default function KPICardsReal({
       iconColor: "#FFFFFF",
       iconBg: "var(--status-danger-bg)",
       valueColor: "var(--status-danger-bg)",
+      descricao: "Alunos com 3 ou mais disciplinas em risco (média abaixo de 5, ou soma insuficiente no fechamento do 4º bimestre). É esse aluno que vai a conselho de classe.",
     },
     {
       titulo: "Adequado + Avançado",
@@ -112,6 +116,7 @@ export default function KPICardsReal({
       iconColor: "#FFFFFF",
       iconBg: "var(--status-success-bg)",
       valueColor: "var(--status-success-bg)",
+      descricao: "Percentual de alunos com média igual ou acima de 7,0 (nível adequado ou avançado), sobre o total de alunos com nota lançada no recorte.",
     },
     {
       titulo: "Disciplina Crítica",
@@ -121,6 +126,7 @@ export default function KPICardsReal({
       iconColor: "#FFFFFF",
       iconBg: "var(--brand-accent-red)",
       valueColor: "var(--brand-accent-red)",
+      descricao: "A disciplina com o maior percentual de notas abaixo de 5,0 no recorte selecionado. Ajuda a identificar onde o reforço pedagógico é mais urgente.",
     },
     {
       titulo: "Pontos de Atenção",
@@ -130,6 +136,7 @@ export default function KPICardsReal({
       iconColor: "#7A5800",
       iconBg: "var(--status-warning-tint)",
       valueColor: "#7A5800",
+      descricao: "Alunos com 1 ou 2 disciplinas em risco — abaixo do limite de 3 que caracteriza situação crítica, mas que já merecem acompanhamento.",
     },
   ];
 
@@ -168,10 +175,11 @@ export default function KPICardsReal({
           <div key={card.titulo} style={cardStyle}>
             <div className="flex items-start justify-between gap-4">
               <p
-                className="text-xs font-medium uppercase tracking-wide"
+                className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
                 style={{ color: "var(--text-secondary)" }}
               >
                 {card.titulo}
+                <InfoTooltip texto={card.descricao} align="start" />
               </p>
               <div
                 className="flex items-center justify-center shrink-0 p-2"
@@ -203,10 +211,14 @@ export default function KPICardsReal({
             <div style={cardStyle}>
               <div className="flex items-start justify-between gap-4">
                 <p
-                  className="text-xs font-medium uppercase tracking-wide"
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Destaque da Turma
+                  <InfoTooltip
+                    align="start"
+                    texto="O aluno com a maior média entre todas as disciplinas, considerando apenas as notas já lançadas nesta turma."
+                  />
                 </p>
                 <div
                   className="flex items-center justify-center shrink-0 p-2"
@@ -240,10 +252,14 @@ export default function KPICardsReal({
             <div style={cardStyle}>
               <div className="flex items-start justify-between gap-4">
                 <p
-                  className="text-xs font-medium uppercase tracking-wide"
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Alertas da Turma
+                  <InfoTooltip
+                    align="start"
+                    texto="Os alunos com as menores médias desta turma, considerando apenas as notas já lançadas. Não é necessariamente a lista de alunos críticos — veja o card Alunos Críticos para esse critério."
+                  />
                 </p>
                 <div
                   className="flex items-center justify-center shrink-0 p-2"
@@ -295,10 +311,14 @@ export default function KPICardsReal({
             <div style={cardStyle}>
               <div className="flex items-start justify-between gap-4">
                 <p
-                  className="text-xs font-medium uppercase tracking-wide"
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Melhor Turma
+                  <InfoTooltip
+                    align="start"
+                    texto="A turma com a maior média geral entre as turmas visíveis para você neste recorte de bimestre/ano letivo."
+                  />
                 </p>
                 <div
                   className="flex items-center justify-center shrink-0 p-2"
@@ -321,10 +341,14 @@ export default function KPICardsReal({
             <div style={cardStyle}>
               <div className="flex items-start justify-between gap-4">
                 <p
-                  className="text-xs font-medium uppercase tracking-wide"
+                  className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide"
                   style={{ color: "var(--text-secondary)" }}
                 >
                   Turma em Alerta
+                  <InfoTooltip
+                    align="start"
+                    texto="A turma com a menor média geral entre as turmas visíveis para você neste recorte de bimestre/ano letivo — a que mais precisa de atenção pedagógica agora."
+                  />
                 </p>
                 <div
                   className="flex items-center justify-center shrink-0 p-2"
