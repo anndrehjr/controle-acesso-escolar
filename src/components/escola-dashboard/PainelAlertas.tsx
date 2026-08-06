@@ -431,7 +431,7 @@ function StudentCard({
         </span>
       </div>
 
-      {/* Média */}
+      {/* Disciplinas em risco — é essa contagem que define Crítico/Atenção, não a média geral */}
       <div
         className="mb-4 px-4 py-3"
         style={{
@@ -441,21 +441,16 @@ function StudentCard({
         }}
       >
         <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Média geral
+          Disciplinas em risco
         </p>
         <p className="mt-0.5 text-2xl" style={{ color: statusColor, fontWeight: 600 }}>
-          {aluno.mediaGeral !== null
-            ? aluno.mediaGeral.toFixed(1).replace(".", ",")
-            : "—"}
+          {aluno.totalDisciplinasRisco}
         </p>
       </div>
 
       {/* Disciplinas em alerta */}
       {aluno.totalDisciplinasRisco > 0 && (
         <div className="mb-4">
-          <p className="mb-2 text-xs" style={{ color: "var(--text-secondary)" }}>
-            {aluno.totalDisciplinasRisco} disciplina{aluno.totalDisciplinasRisco !== 1 ? "s" : ""} em alerta
-          </p>
           <div className="flex flex-wrap gap-1.5">
             {aluno.disciplinas.slice(0, 5).map(d => (
               <span
