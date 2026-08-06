@@ -16,6 +16,13 @@ type LogEntry = {
   created_at: string;
 };
 
+const inputStyle: React.CSSProperties = {
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text-primary)",
+};
+
 function ConteudoLogs() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -41,9 +48,11 @@ function ConteudoLogs() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 md:p-8 text-white">
+    <main className="min-h-screen p-6 md:p-8" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
       <h1 className="text-2xl font-bold">Logs de auditoria</h1>
-      <p className="mt-1 text-sm text-zinc-400">Login, logout e alterações de usuários registradas no sistema.</p>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+        Login, logout e alterações de usuários registradas no sistema.
+      </p>
 
       <form
         onSubmit={(e) => {
@@ -56,12 +65,18 @@ function ConteudoLogs() {
           placeholder="Filtrar por e-mail"
           value={filtroUsuario}
           onChange={(e) => setFiltroUsuario(e.target.value)}
-          className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm"
+          className="p-2 text-sm outline-none transition"
+          style={inputStyle}
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
+          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         />
         <select
           value={filtroAcao}
           onChange={(e) => setFiltroAcao(e.target.value)}
-          className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm"
+          className="p-2 text-sm outline-none transition"
+          style={inputStyle}
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
+          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         >
           <option value="">Todas as ações</option>
           <option value="LOGIN_SUCESSO">Login com sucesso</option>
@@ -71,14 +86,26 @@ function ConteudoLogs() {
           <option value="USUARIO_CRIADO">Usuário criado</option>
           <option value="SENHA_REDEFINIDA">Senha redefinida</option>
         </select>
-        <button type="submit" className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-black">
+        <button
+          type="submit"
+          className="px-4 py-2 text-sm font-semibold transition"
+          style={{ borderRadius: "var(--radius-sm)", background: "var(--brand-primary)", color: "var(--status-text-on-color)" }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-hover)")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary)")}
+        >
           Filtrar
         </button>
       </form>
 
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-zinc-800">
+      <div
+        className="mt-6 overflow-x-auto"
+        style={{ borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)", background: "var(--bg-card)", boxShadow: "var(--shadow-card)" }}
+      >
         <table className="w-full min-w-[720px] text-sm">
-          <thead className="bg-zinc-950/60 text-left text-xs uppercase text-zinc-500">
+          <thead
+            className="text-left text-xs uppercase tracking-wide"
+            style={{ background: "var(--bg-app)", color: "var(--text-secondary)" }}
+          >
             <tr>
               <th className="px-4 py-3">Quando</th>
               <th className="px-4 py-3">Usuário</th>
@@ -91,33 +118,33 @@ function ConteudoLogs() {
           <tbody>
             {carregando && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={6} className="px-4 py-6 text-center" style={{ color: "var(--text-secondary)" }}>
                   Carregando...
                 </td>
               </tr>
             )}
             {!carregando && logs.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={6} className="px-4 py-6 text-center" style={{ color: "var(--text-secondary)" }}>
                   Nenhum registro encontrado.
                 </td>
               </tr>
             )}
             {!carregando &&
               logs.map((log) => (
-                <tr key={log.id} className="border-t border-zinc-800">
-                  <td className="px-4 py-3 text-zinc-400">
+                <tr key={log.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                  <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>
                     {new Date(log.created_at).toLocaleString("pt-BR")}
                   </td>
                   <td className="px-4 py-3">{log.usuario_email ?? "-"}</td>
-                  <td className="px-4 py-3 text-zinc-400">{log.role ?? "-"}</td>
+                  <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{log.role ?? "-"}</td>
                   <td className="px-4 py-3 font-medium">{log.acao}</td>
-                  <td className="px-4 py-3 text-zinc-400">{log.ip ?? "-"}</td>
+                  <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{log.ip ?? "-"}</td>
                   <td className="px-4 py-3">
                     {log.sucesso ? (
-                      <span className="text-green-400">OK</span>
+                      <span style={{ color: "var(--status-success-bg)" }}>OK</span>
                     ) : (
-                      <span className="text-red-400">Falha</span>
+                      <span style={{ color: "var(--status-danger-bg)" }}>Falha</span>
                     )}
                   </td>
                 </tr>

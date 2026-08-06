@@ -35,11 +35,13 @@ type Props = {
   distribuicaoGeral: DistribuicaoGeral;
 };
 
+// Mesma escala de 4 níveis usada em TendenciaBimestres (corPorMedia), pra manter
+// a linguagem de cor consistente em todo o dashboard.
 const cores = {
-  critico: "#E0524A",
-  basico: "#F2B705",
-  adequado: "#1F9D8C",
-  avancado: "#1565D8",
+  critico: "#ef4444",
+  basico: "#eab308",
+  adequado: "#22c55e",
+  avancado: "#3b82f6",
 };
 
 const cardStyle: React.CSSProperties = {
@@ -58,20 +60,20 @@ export default function GraficosVisaoGeral({
 
   const c = theme === "dark"
     ? {
-        grid: "#2A2F3A",
-        axis: "#8A909E",
-        tick: "#E1E4EA",
-        tooltipBg: "#1E2229",
-        tooltipBorder: "#2A2F3A",
-        tooltipText: "#E1E4EA",
+        grid: "#27272a",
+        axis: "#a1a1aa",
+        tick: "#e4e4e7",
+        tooltipBg: "#18181b",
+        tooltipBorder: "#27272a",
+        tooltipText: "#e4e4e7",
       }
     : {
-        grid: "#E3E6EA",
-        axis: "#7A8089",
-        tick: "#2B2F36",
-        tooltipBg: "#FFFFFF",
-        tooltipBorder: "#E3E6EA",
-        tooltipText: "#2B2F36",
+        grid: "#e5e7eb",
+        axis: "#6b7280",
+        tick: "#111827",
+        tooltipBg: "#ffffff",
+        tooltipBorder: "#e5e7eb",
+        tooltipText: "#111827",
       };
 
   const pizza = [

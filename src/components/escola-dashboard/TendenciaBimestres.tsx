@@ -101,26 +101,26 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
 
   const chartC = theme === "light"
     ? {
-        grid: "#E3E6EA",
-        tick: "#7A8089",
-        tickMuted: "#7A8089",
-        line: "#2B2F36",
-        tooltipBg: "#FFFFFF",
-        tooltipBorder: "#E3E6EA",
-        tooltipMuted: "#7A8089",
-        tooltipSecondary: "#7A8089",
-        cursor: "#E3E6EA",
+        grid: "#e5e7eb",
+        tick: "#6b7280",
+        tickMuted: "#6b7280",
+        line: "#111827",
+        tooltipBg: "#ffffff",
+        tooltipBorder: "#e5e7eb",
+        tooltipMuted: "#6b7280",
+        tooltipSecondary: "#6b7280",
+        cursor: "#e5e7eb",
       }
     : {
-        grid: "#2A2F3A",
-        tick: "#8A909E",
-        tickMuted: "#8A909E",
-        line: "#E1E4EA",
-        tooltipBg: "#1E2229",
-        tooltipBorder: "#2A2F3A",
-        tooltipMuted: "#8A909E",
-        tooltipSecondary: "#8A909E",
-        cursor: "#2A2F3A",
+        grid: "#27272a",
+        tick: "#a1a1aa",
+        tickMuted: "#a1a1aa",
+        line: "#e4e4e7",
+        tooltipBg: "#18181b",
+        tooltipBorder: "#27272a",
+        tooltipMuted: "#a1a1aa",
+        tooltipSecondary: "#a1a1aa",
+        cursor: "#27272a",
       };
 
   useEffect(() => {
