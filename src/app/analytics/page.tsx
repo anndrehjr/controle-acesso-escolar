@@ -3,13 +3,13 @@ export const dynamic = "force-dynamic";
 import { requireAuth } from "../../lib/requireAuth";
 import db from "../../lib/db";
 import { buildSchoolDashboard } from "../../lib/analytics/buildSchoolDashboard";
-import { buildRiscoAcademico } from "../../lib/analytics/buildRiscoAcademico";
+import { buildExecutivo, gerarObservacoes } from "../../lib/analytics/buildExecutivo";
+import { separarTurmasPorNivel } from "../../lib/analytics/nivelEnsino";
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
 import AnalyticsHeaderNav from "../../components/analytics/AnalyticsHeaderNav";
 import ResumoCards from "../../components/analytics/ResumoCards";
 import TabelaComparativa from "../../components/analytics/TabelaComparativa";
-import EvolucaoTurmasLista from "../../components/analytics/EvolucaoTurmasLista";
 import RecomposicaoCard from "../../components/analytics/RecomposicaoCard";
 import AlertasTextoList from "../../components/analytics/AlertasTextoList";
 import TendenciaBimestres from "../../components/escola-dashboard/TendenciaBimestres";
@@ -32,7 +32,6 @@ export default async function AnalyticsPage() {
   const escola = escolaRows[0];
   if (!escola) redirect("/dashboard");
 
-  const bimestreAtual = (escola.bimestre_atual as number | undefined) ?? 2;
   const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
 
   const [turmasRows, alunosRows, disciplinasRows, matrizRows] = await Promise.all([
@@ -51,72 +50,56 @@ export default async function AnalyticsPage() {
     SELECT * FROM notas WHERE escola_id = ${ESCOLA_ID} AND ano_letivo = ${anoLetivo}
   ` as unknown as Nota[];
 
-  const notasPorBim = (b: number) => todasNotas.filter(n => Number(n.bimestre) === b);
+  // Dashboard executivo: evolução por bimestre, rankings, alunos críticos/atenção — tudo
+  // ancorado no último bimestre com notas REALMENTE lançadas, não numa flag administrativa
+  // (escola.bimestre_atual) que pode ficar desatualizada em relação ao que já foi lançado.
+  const executivo = buildExecutivo({ alunos, turmas, disciplinas, matriz, todasNotas, anoLetivo });
+  const bimestreAtual = executivo.ultimoBimestreComDados;
+
+  const notasPorBim = (b: number) => todasNotas.filter((n) => Number(n.bimestre) === b);
   const notasB = [1, 2, 3, 4].map((_, i) => notasPorBim(i + 1));
 
-  const builds = notasB.map((notas, idx) =>
-    buildSchoolDashboard({ alunos, notas, turmas, disciplinas, bimestre: idx + 1, anoLetivo })
-  );
-
-  const dashAtual = builds[bimestreAtual - 1];
-  const dashAnterior = bimestreAtual > 1 ? builds[bimestreAtual - 2] : null;
-
-  // Risco acadêmico é cumulativo no ano: usa tudo lançado até o bimestre atual, não só o bimestre isolado.
-  const notasAteAtual = todasNotas.filter(n => Number(n.bimestre) <= bimestreAtual);
-  const alertas = buildRiscoAcademico({
+  // Snapshot do bimestre atual (isolado) — usado só pelas Disciplinas Críticas (EF/Médio/Geral),
+  // que já tinham essa separação pronta em buildSchoolDashboard.
+  const dashAtual = buildSchoolDashboard({
     alunos,
-    notas: notasAteAtual,
+    notas: notasPorBim(bimestreAtual),
     turmas,
     disciplinas,
-    matriz,
+    bimestre: bimestreAtual,
+    anoLetivo,
   });
 
-  const delta = dashAnterior
-    ? Number((dashAtual.mediaGeral - dashAnterior.mediaGeral).toFixed(1))
-    : null;
+  const totalAlunos = alunos.filter((a) => a.status !== "TRANSFERIDO").length;
 
-  // Tabela comparativa por disciplina
-  const tabelaDisciplinas = disciplinas.map(d => {
-    const bims = notasB.map((notas, idx) => {
-      const nd = notas.filter(n => n.disciplina_id === d.id);
-      const media = nd.length > 0
-        ? Number((nd.reduce((s, n) => s + Number(n.nota), 0) / nd.length).toFixed(1))
-        : null;
-      return { bimestre: idx + 1, media, temDados: nd.length > 0 };
-    });
-    const primeiro = bims.find(b => b.temDados);
-    const ultimo = [...bims].reverse().find(b => b.temDados);
-    const evolucao =
-      primeiro && ultimo && primeiro !== ultimo &&
-      primeiro.media !== null && ultimo.media !== null
-        ? Number((ultimo.media - primeiro.media).toFixed(1))
-        : null;
-    return { disciplina: d, bims, evolucao };
-  }).filter(r => r.bims.some(b => b.temDados));
+  // Desempenho por disciplina — SEMPRE separado por nível de ensino (Fundamental x Médio),
+  // mesmo quando a disciplina tem o mesmo nome/id nos dois níveis (ex.: "Matemática" é a
+  // mesma linha na tabela disciplinas, mas o conteúdo/critério de avaliação é diferente).
+  const { fundamental: turmasFund, medio: turmasMedio } = separarTurmasPorNivel(turmas);
+  const idsTurmasFund = new Set(turmasFund.map((t) => t.id));
+  const idsTurmasMedio = new Set(turmasMedio.map((t) => t.id));
 
-  // Evolucao por turma
-  const evolucaoTurmas = turmas.map(t => {
-    const ids = new Set(alunos.filter(a => a.turma_id === t.id).map(a => a.id));
-    const mediaBim = (b: number) => {
-      const notas = notasB[b - 1].filter(n => ids.has(n.aluno_id));
-      return notas.length > 0
-        ? Number((notas.reduce((s, n) => s + Number(n.nota), 0) / notas.length).toFixed(1))
-        : null;
-    };
-    const mediaAtual = mediaBim(bimestreAtual);
-    const mediaAnt = bimestreAtual > 1 ? mediaBim(bimestreAtual - 1) : null;
-    const d =
-      mediaAtual !== null && mediaAnt !== null
-        ? Number((mediaAtual - mediaAnt).toFixed(1))
-        : null;
-    return {
-      turma: { id: t.id, nome: t.nome },
-      media: mediaAtual,
-      mediaAnterior: mediaAnt,
-      delta: d,
-      temDados: mediaAtual !== null,
-    };
-  }).filter(t => t.temDados);
+  function montarTabelaDisciplinas(idsTurmasDoNivel: Set<string>) {
+    return disciplinas
+      .map((d) => {
+        const bims = notasB.map((notas, idx) => {
+          const nd = notas.filter((n) => n.disciplina_id === d.id && idsTurmasDoNivel.has(n.turma_id));
+          const media = nd.length > 0 ? Number((nd.reduce((s, n) => s + Number(n.nota), 0) / nd.length).toFixed(1)) : null;
+          return { bimestre: idx + 1, media, temDados: nd.length > 0 };
+        });
+        const primeiro = bims.find((b) => b.temDados);
+        const ultimo = [...bims].reverse().find((b) => b.temDados);
+        const evolucao =
+          primeiro && ultimo && primeiro !== ultimo && primeiro.media !== null && ultimo.media !== null
+            ? Number((ultimo.media - primeiro.media).toFixed(1))
+            : null;
+        return { disciplina: d, bims, evolucao };
+      })
+      .filter((r) => r.bims.some((b) => b.temDados));
+  }
+
+  const tabelaDisciplinasFundamental = montarTabelaDisciplinas(idsTurmasFund);
+  const tabelaDisciplinasMedio = montarTabelaDisciplinas(idsTurmasMedio);
 
   // Recomposicao B1 vs B2
   const recomposicao: RecomposicaoItem[] = bimestreAtual >= 2
@@ -130,46 +113,9 @@ export default async function AnalyticsPage() {
       })
     : [];
 
-  // Melhor e pior disciplina por media atual
-  const discComDados = tabelaDisciplinas.filter(d => d.bims[bimestreAtual - 1]?.temDados);
-  const melhorDisciplina = discComDados.length > 0
-    ? discComDados.reduce((best, d) =>
-        (d.bims[bimestreAtual - 1]?.media ?? 0) > (best.bims[bimestreAtual - 1]?.media ?? 0) ? d : best
-      ).disciplina.nome
-    : "-";
-  const piorDisciplina = discComDados.length > 0
-    ? discComDados.reduce((worst, d) =>
-        (d.bims[bimestreAtual - 1]?.media ?? 10) < (worst.bims[bimestreAtual - 1]?.media ?? 10) ? d : worst
-      ).disciplina.nome
-    : "-";
-
-  // Turma que mais evoluiu
-  const turmaMaisEvoluiu = [...evolucaoTurmas].sort(
-    (a, b) => (b.delta ?? -99) - (a.delta ?? -99)
-  )[0];
-
-  // Alertas automaticos
-  const alertasTexto: string[] = [];
-  if (delta !== null) {
-    if (delta > 0.1)
-      alertasTexto.push(`A media geral subiu ${delta.toFixed(1)} pontos em relacao ao ${bimestreAtual - 1}o bimestre.`);
-    else if (delta < -0.1)
-      alertasTexto.push(`A media geral caiu ${Math.abs(delta).toFixed(1)} pontos em relacao ao ${bimestreAtual - 1}o bimestre.`);
-    else
-      alertasTexto.push(`A media geral manteve-se estavel em relacao ao ${bimestreAtual - 1}o bimestre.`);
-  }
-  if (dashAtual.melhorTurma && dashAtual.melhorTurma.media > 0)
-    alertasTexto.push(`${dashAtual.melhorTurma.turma.nome} e a turma com melhor desempenho (media ${dashAtual.melhorTurma.media.toFixed(1)}).`);
-  if (
-    dashAtual.turmaAlerta &&
-    dashAtual.turmaAlerta.turma.id !== dashAtual.melhorTurma?.turma.id &&
-    dashAtual.turmaAlerta.media < 6
-  )
-    alertasTexto.push(`${dashAtual.turmaAlerta.turma.nome} necessita de atencao pedagogica (media ${dashAtual.turmaAlerta.media.toFixed(1)}).`);
-  if (dashAtual.disciplinaMaisCritica && dashAtual.disciplinaMaisCritica.percentual > 0)
-    alertasTexto.push(`${dashAtual.disciplinaMaisCritica.disciplina.nome} tem o maior indice de alunos abaixo da media (${dashAtual.disciplinaMaisCritica.percentual.toFixed(0)}%).`);
-  if (alertas.criticos.length > 0)
-    alertasTexto.push(`${alertas.criticos.length} aluno${alertas.criticos.length !== 1 ? "s estao" : " esta"} em risco critico de reprovacao (3 ou mais disciplinas pre-reprovadas no ano).`);
+  // Observações inteligentes — evoluem sozinhas conforme mais bimestres são lançados
+  // (1 bimestre: estado atual; 2-3: comparação com o anterior; 4: análise anual completa).
+  const alertasTexto = gerarObservacoes(executivo);
 
   return (
     <main className="min-h-screen p-6 md:p-8 space-y-8">
@@ -181,33 +127,22 @@ export default async function AnalyticsPage() {
         anoLetivo={anoLetivo}
       />
 
-      <ResumoCards
-        mediaGeral={dashAtual.mediaGeral}
-        deltaMedia={delta}
-        totalAlunos={dashAtual.alunosAtivos.length}
-        alunosCriticos={alertas.criticos.length}
-        alunosAtencao={alertas.atencao.length}
-        melhorDisciplina={melhorDisciplina}
-        piorDisciplina={piorDisciplina}
-        melhorTurma={dashAtual.melhorTurma?.turma.nome ?? "-"}
-        melhorTurmaMedia={dashAtual.melhorTurma?.media ?? 0}
-        turmaMaisEvoluiu={turmaMaisEvoluiu?.turma.nome ?? "-"}
-        deltaTurmaMaisEvoluiu={turmaMaisEvoluiu?.delta ?? null}
-        bimestre={bimestreAtual}
-      />
+      <ResumoCards executivo={executivo} totalAlunos={totalAlunos} />
 
       <TendenciaBimestres />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <TabelaComparativa disciplinas={tabelaDisciplinas} bimestreAtual={bimestreAtual} />
+        <TabelaComparativa
+          disciplinasFundamental={tabelaDisciplinasFundamental}
+          disciplinasMedio={tabelaDisciplinasMedio}
+          bimestreAtual={bimestreAtual}
+        />
         <DisciplinasCriticas
           geral={dashAtual.disciplinasCriticasGeral}
           fundamental={dashAtual.disciplinasCriticasFundamental}
           medio={dashAtual.disciplinasCriticasMedio}
         />
       </div>
-
-      <EvolucaoTurmasLista turmas={evolucaoTurmas} bimestreAtual={bimestreAtual} />
 
       {recomposicao.length > 0 && (
         <RecomposicaoCard disciplinas={recomposicao} />
