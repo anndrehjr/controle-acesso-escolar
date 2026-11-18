@@ -13,16 +13,15 @@ Gerencia alunos, turmas, notas, disciplinas e usuários com controle de acesso p
 - **Framework:** Next.js (App Router)
 - **Linguagem:** TypeScript
 - **Banco de dados:** PostgreSQL (rodando em Docker na VPS)
-- **Autenticação:** A migrar do Supabase Auth para solução própria
-- **Deploy atual:** Vercel (em migração para VPS própria)
-- **Deploy futuro:** VPS em Docker via Nginx Proxy Manager
+- **Autenticação:** própria (JWT com `jose`, senhas com `bcryptjs`, sessões revogáveis)
+- **Deploy:** VPS própria em Docker, via Nginx Proxy Manager
 
 ---
 
 ## 🖥️ Infraestrutura
 
 ### VPS
-- **IP:** 144.217.161.241
+- **IP:** <IP-DA-VPS>
 - **OS:** Debian 12 (Bookworm)
 - **Usuário:** sombra (sudo sem senha)
 - **SSH:** porta 2222, autenticação por chave ED25519
@@ -55,7 +54,7 @@ Gerencia alunos, turmas, notas, disciplinas e usuários com controle de acesso p
 
 ### Conexão
 ```
-Host:     144.217.161.241
+Host:     <IP-DA-VPS>
 Porta:    5432
 Banco:    escola
 Usuário:  admin
@@ -64,7 +63,7 @@ Senha:    [ver .env.local — nunca commitar]
 
 ### Variáveis de ambiente (.env.local)
 ```env
-DATABASE_URL=postgresql://admin:SENHA@144.217.161.241:5432/escola
+DATABASE_URL=postgresql://admin:SENHA@<IP-DA-VPS>:5432/escola
 NEXT_PUBLIC_APP_URL=https://escola.andre-aguiar-jr.com.br
 ```
 
@@ -150,8 +149,8 @@ npm run dev
 1. **Nunca expor credenciais** — ficam no .env.local
 2. **Sempre filtrar por escola_id** — sistema multi-escola
 3. **TypeScript estrito** — sem `any` sem justificativa
-4. **Banco é PostgreSQL puro** — sem sintaxe específica do Supabase
-5. **Não usar Supabase client** — conexão via `pg` ou `postgres.js` direta
+4. **Banco é PostgreSQL puro** — sem sintaxe específica de provedor
+5. **Sem SDK de banco gerenciado** — conexão direta via `postgres.js`
 6. **SQL puro** — sem ORM pesado
 7. **Segurança primeiro** — validar role antes de qualquer operação
 
@@ -161,11 +160,11 @@ npm run dev
 
 | Item | Status |
 |---|---|
-| Banco de dados | ✅ Migrado para VPS |
-| Dados históricos | ✅ Importados (1741 registros) |
-| Código fonte | 🔄 Em migração (ainda na Vercel) |
-| Autenticação | 🔄 Migrar do Supabase Auth |
-| Deploy VPS | ⏳ Próximo passo |
+| Banco de dados | ✅ PostgreSQL na VPS (Docker) |
+| Dados históricos | ✅ Importados |
+| Código fonte | ✅ Em produção na VPS (Docker) |
+| Autenticação | ✅ Própria (JWT) |
+| Deploy VPS | ✅ Concluído |
 | Domínio | ✅ Configurado no Cloudflare |
 
 ---
