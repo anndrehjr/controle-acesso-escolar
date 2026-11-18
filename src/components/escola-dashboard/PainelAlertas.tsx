@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
+import StyledSelect from "../StyledSelect"
 
 export type DisciplinaAlerta = {
   disciplinaId: string
   nome: string
   codigo: string
   nota: number
+  emConselho?: boolean
 }
 
 export type AlunoAlerta = {
@@ -31,10 +33,19 @@ type Props = {
 type Filtro = "todos" | "critico" | "atencao"
 type Ordenacao = "risco" | "media_asc" | "media_desc" | "nome"
 
-function getBgBarra(nota: number) {
-  if (nota < 5) return "bg-red-500"
-  if (nota < 7) return "bg-amber-500"
-  return "bg-emerald-500"
+function getBarColor(nota: number): string {
+  if (nota < 5) return "var(--status-danger-bg)"
+  if (nota < 7) return "var(--status-warning-bg)"
+  return "var(--status-success-bg)"
+}
+
+const inputStyle: React.CSSProperties = {
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-sm)",
+  background: "var(--bg-card)",
+  color: "var(--text-primary)",
+  fontSize: "var(--font-size-base)",
+  outline: "none",
 }
 
 export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props) {
@@ -44,9 +55,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("risco")
   const [alunoSelecionado, setAlunoSelecionado] = useState<AlunoAlerta | null>(null)
   const [drawerAberto, setDrawerAberto] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => { setMounted(true) }, [])
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   const totalCriticos = alunosAlerta.filter(a => a.status === "critico").length
   const totalAtencao = alunosAlerta.filter(a => a.status === "atencao").length
@@ -98,14 +107,24 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
         {/* Panel header */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <div className="mb-2 inline-flex rounded-full border border-red-900/60 bg-red-950/40 px-3 py-1 text-xs font-medium text-red-400">
+            <div
+              className="mb-2 inline-flex px-3 py-1 text-xs font-medium"
+              style={{
+                background: "var(--status-danger-tint)",
+                borderRadius: "var(--radius-pill)",
+                color: "var(--status-danger-bg)",
+              }}
+            >
               Monitoramento Pedagógico
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+            <h2
+              className="text-xl tracking-tight"
+              style={{ color: "var(--text-primary)", fontWeight: 600 }}
+            >
               Painel de Alertas
             </h2>
-            <p className="mt-1 text-sm text-zinc-400">
-              {bimestre}º bimestre · 🔴 4+ disciplinas &lt; 5,0 · 🟡 2–3 disciplinas &lt; 5,0
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              {bimestre}º bimestre · risco anual · 3+ disciplinas pré-reprovadas (Pré-Reprovado) · 1–2 disciplinas pré-reprovadas (Atenção)
             </p>
           </div>
         </div>
@@ -114,55 +133,84 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => setFiltro(f => f === "critico" ? "todos" : "critico")}
-            className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] ${
-              filtro === "critico"
-                ? "border-red-500/60 bg-red-950/60 shadow-lg shadow-red-900/20"
-                : "border-red-900/40 bg-red-950/20 hover:border-red-700/50 hover:bg-red-950/35 hover:shadow-lg hover:shadow-red-900/10"
-            }`}
+            className="p-5 text-left transition-all"
+            style={{
+              border: `2px solid ${filtro === "critico" ? "var(--status-danger-bg)" : "var(--border-subtle)"}`,
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-card)",
+              boxShadow: "var(--shadow-card)",
+            }}
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(239,68,68,0.12),transparent_60%)]" />
-            <div className="relative z-10">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
-                <span className="text-xs font-bold uppercase tracking-widest text-red-500">Crítico</span>
-              </div>
-              <p className="text-5xl font-black text-red-300">{totalCriticos}</p>
-              <p className="mt-1.5 text-xs text-zinc-400">4 ou mais disciplinas abaixo de 5,0</p>
-              <p className="mt-0.5 text-xs text-zinc-600">Clique para filtrar</p>
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: "var(--status-danger-bg)" }}
+              />
+              <span
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--status-danger-bg)" }}
+              >
+                Pré-Reprovado
+              </span>
             </div>
-            {filtro === "critico" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
-            )}
+            <p
+              className="text-4xl"
+              style={{ color: "var(--text-primary)", fontWeight: 600 }}
+            >
+              {totalCriticos}
+            </p>
+            <p className="mt-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              3 ou mais disciplinas pré-reprovadas no ano
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.6 }}>
+              Clique para filtrar
+            </p>
           </button>
 
           <button
             onClick={() => setFiltro(f => f === "atencao" ? "todos" : "atencao")}
-            className={`group relative overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.99] ${
-              filtro === "atencao"
-                ? "border-amber-500/60 bg-amber-950/60 shadow-lg shadow-amber-900/20"
-                : "border-amber-900/40 bg-amber-950/15 hover:border-amber-700/50 hover:bg-amber-950/25 hover:shadow-lg hover:shadow-amber-900/10"
-            }`}
+            className="p-5 text-left transition-all"
+            style={{
+              border: `2px solid ${filtro === "atencao" ? "#E8860C" : "var(--border-subtle)"}`,
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-card)",
+              boxShadow: "var(--shadow-card)",
+            }}
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.1),transparent_60%)]" />
-            <div className="relative z-10">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-                <span className="text-xs font-bold uppercase tracking-widest text-amber-500">Atenção</span>
-              </div>
-              <p className="text-5xl font-black text-amber-300">{totalAtencao}</p>
-              <p className="mt-1.5 text-xs text-zinc-400">2 ou 3 disciplinas abaixo de 5,0</p>
-              <p className="mt-0.5 text-xs text-zinc-600">Clique para filtrar</p>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full" style={{ background: "#E8860C" }} />
+              <span
+                className="text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "#E8860C" }}
+              >
+                Atenção
+              </span>
             </div>
-            {filtro === "atencao" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
-            )}
+            <p
+              className="text-4xl"
+              style={{ color: "var(--text-primary)", fontWeight: 600 }}
+            >
+              {totalAtencao}
+            </p>
+            <p className="mt-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              1 ou 2 disciplinas pré-reprovadas no ano
+            </p>
+            <p className="mt-0.5 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.6 }}>
+              Clique para filtrar
+            </p>
           </button>
         </div>
 
         {/* Filter bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="relative flex-1 min-w-[180px]">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              style={{ color: "var(--text-secondary)" }}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -170,65 +218,80 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               placeholder="Buscar aluno por nome..."
               value={busca}
               onChange={e => setBusca(e.target.value)}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2.5 pl-9 pr-9 text-sm text-white placeholder-zinc-500 outline-none transition focus:border-zinc-600 focus:ring-1 focus:ring-zinc-700"
+              className="w-full py-2.5 pl-9 pr-9 text-sm transition"
+              style={inputStyle}
             />
             {busca && (
               <button
                 onClick={() => setBusca("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition text-xs"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs transition"
+                style={{ color: "var(--text-secondary)" }}
               >
                 ✕
               </button>
             )}
           </div>
 
-          <div className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1 gap-0.5">
+          <div
+            className="flex p-1 gap-0.5"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-card)",
+            }}
+          >
             {(["todos", "critico", "atencao"] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFiltro(f)}
-                className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all ${
-                  filtro === f
-                    ? f === "critico"
-                      ? "bg-red-900/70 text-red-300 shadow-sm"
-                      : f === "atencao"
-                      ? "bg-amber-900/60 text-amber-300 shadow-sm"
-                      : "bg-zinc-700 text-white shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
+                className="px-3.5 py-1.5 text-xs font-medium transition-all"
+                style={{
+                  borderRadius: "var(--radius-sm)",
+                  background:
+                    filtro === f
+                      ? f === "critico"
+                        ? "var(--status-danger-bg)"
+                        : f === "atencao"
+                        ? "#E8860C"
+                        : "var(--brand-primary)"
+                      : "transparent",
+                  color: filtro === f ? "#FFFFFF" : "var(--text-secondary)",
+                }}
               >
-                {f === "todos" ? "Todos" : f === "critico" ? "Críticos" : "Atenção"}
+                {f === "todos" ? "Todos" : f === "critico" ? "Pré-Reprovados" : "Atenção"}
               </button>
             ))}
           </div>
 
           {turmas.length > 0 && (
-            <select
+            <StyledSelect
               value={turmaFiltro}
               onChange={e => setTurmaFiltro(e.target.value)}
-              className="rounded-xl border border-zinc-800 bg-zinc-900 py-2.5 px-3 text-sm text-white outline-none transition focus:border-zinc-600 cursor-pointer"
+              className="py-2.5 pl-3 text-sm"
+              style={inputStyle}
             >
               <option value="">Todas as turmas</option>
               {turmas.map(t => (
                 <option key={t.id} value={t.id}>{t.nome}</option>
               ))}
-            </select>
+            </StyledSelect>
           )}
 
-          <select
+          <StyledSelect
             value={ordenacao}
             onChange={e => setOrdenacao(e.target.value as Ordenacao)}
-            className="rounded-xl border border-zinc-800 bg-zinc-900 py-2.5 px-3 text-sm text-white outline-none transition focus:border-zinc-600 cursor-pointer"
+            className="py-2.5 pl-3 text-sm"
+            style={inputStyle}
           >
             <option value="risco">Maior risco primeiro</option>
             <option value="media_asc">Menor média primeiro</option>
             <option value="media_desc">Maior média primeiro</option>
             <option value="nome">Nome A–Z</option>
-          </select>
+          </StyledSelect>
         </div>
 
         {/* Count */}
-        <p className="text-xs text-zinc-600">
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
           {alunosFiltrados.length === 0
             ? "Nenhum resultado"
             : `${alunosFiltrados.length} aluno${alunosFiltrados.length !== 1 ? "s" : ""} encontrado${alunosFiltrados.length !== 1 ? "s" : ""}`}
@@ -237,16 +300,24 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
 
         {/* Cards grid */}
         {alunosFiltrados.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-14 text-center">
-            <p className="text-zinc-400">
+          <div
+            className="p-14 text-center"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-card)",
+            }}
+          >
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
               {busca || turmaFiltro
                 ? "Nenhum aluno corresponde aos filtros aplicados."
-                : "Nenhum aluno em situação de alerta neste bimestre. "}
+                : "Nenhum aluno em risco acadêmico no ano até agora."}
             </p>
             {(busca || turmaFiltro) && (
               <button
                 onClick={() => { setBusca(""); setTurmaFiltro(""); setFiltro("todos") }}
-                className="mt-3 text-xs text-zinc-500 underline hover:text-zinc-300"
+                className="mt-3 text-xs underline"
+                style={{ color: "var(--text-link)" }}
               >
                 Limpar filtros
               </button>
@@ -274,13 +345,18 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
           }`}
         >
           <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0"
+            style={{ background: "rgba(43,47,54,0.4)" }}
             onClick={fecharDrawer}
           />
           <div
-            className={`absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto border-l border-zinc-800 bg-zinc-950 shadow-2xl transition-transform duration-300 ease-[cubic-bezier(.32,.72,0,1)] ${
+            className={`absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto shadow-2xl transition-transform duration-300 ease-[cubic-bezier(.32,.72,0,1)] ${
               drawerAberto ? "translate-x-0" : "translate-x-full"
             }`}
+            style={{
+              background: "var(--bg-card)",
+              borderLeft: "1px solid var(--border-subtle)",
+            }}
           >
             {alunoSelecionado && (
               <DrawerContent aluno={alunoSelecionado} onClose={fecharDrawer} />
@@ -303,71 +379,107 @@ function StudentCard({
   onClick: () => void
 }) {
   const isCritico = aluno.status === "critico"
+  const statusColor = isCritico ? "var(--status-danger-bg)" : "#E8860C"
+  const statusBg = isCritico ? "var(--status-danger-tint)" : "var(--status-warning-tint)"
+  // Fundo sólido + texto em cima (badge/pill) precisa de mais contraste que texto-sobre-tint —
+  // ver auditoria WCAG nos tokens "-solid" do globals.css.
+  const statusSolidBg = isCritico ? "var(--status-danger-solid)" : "var(--status-warning-solid-bg)"
+  const statusTextOnSolid = isCritico ? "#FFFFFF" : "var(--status-warning-solid-text)"
 
   return (
     <button
       onClick={onClick}
-      className={`group w-full rounded-2xl border p-5 text-left transition-all duration-200 hover:scale-[1.015] hover:shadow-xl active:scale-[0.995] ${
-        isCritico
-          ? "border-red-900/40 bg-gradient-to-br from-red-950/20 to-zinc-950 hover:border-red-700/60 hover:from-red-950/30 hover:shadow-red-900/10"
-          : "border-amber-900/30 bg-gradient-to-br from-amber-950/10 to-zinc-950 hover:border-amber-700/50 hover:from-amber-950/20 hover:shadow-amber-900/10"
-      }`}
+      className="w-full p-5 text-left transition-all"
+      style={{
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--bg-card)",
+        boxShadow: "var(--shadow-card)",
+      }}
     >
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${
-            isCritico
-              ? "border border-red-900/50 bg-red-950/70 text-red-400"
-              : "border border-amber-900/40 bg-amber-950/60 text-amber-400"
-          }`}>
+          <span
+            className="flex h-6 w-6 shrink-0 items-center justify-center text-xs font-semibold"
+            style={{
+              background: statusBg,
+              color: statusColor,
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
             {rank}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">{aluno.nome}</p>
-            <p className="text-xs text-zinc-500">{aluno.turmaNome}</p>
+            <p
+              className="truncate text-sm font-medium"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {aluno.nome}
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+              {aluno.turmaNome}
+            </p>
           </div>
         </div>
-        <span className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${
-          isCritico
-            ? "border-red-900/50 bg-red-950/50 text-red-400"
-            : "border-amber-900/40 bg-amber-950/40 text-amber-400"
-        }`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${isCritico ? "bg-red-500 animate-pulse" : "bg-amber-500"}`} />
-          {isCritico ? "Crítico" : "Atenção"}
+        <span
+          className="shrink-0 inline-flex items-center px-2.5 py-1 text-xs font-semibold"
+          style={{
+            borderRadius: "var(--radius-pill)",
+            background: statusSolidBg,
+            color: statusTextOnSolid,
+          }}
+        >
+          {isCritico ? "Pré-Reprovado" : "Atenção"}
         </span>
       </div>
 
-      {/* Média */}
-      <div className={`mb-4 rounded-xl border px-4 py-3 ${
-        isCritico ? "border-red-900/30 bg-red-950/25" : "border-amber-900/20 bg-amber-950/15"
-      }`}>
-        <p className="text-xs text-zinc-500">Média geral</p>
-        <p className={`mt-0.5 text-3xl font-black ${isCritico ? "text-red-300" : "text-amber-300"}`}>
-          {aluno.mediaGeral !== null
-            ? aluno.mediaGeral.toFixed(1).replace(".", ",")
-            : "—"}
+      {/* Disciplinas em risco — é essa contagem que define Pré-Reprovado/Atenção, não a média geral */}
+      <div
+        className="mb-4 px-4 py-3"
+        style={{
+          border: "1px solid var(--border-subtle)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--bg-app)",
+        }}
+      >
+        <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Disciplinas em risco
+        </p>
+        <p className="mt-0.5 text-2xl" style={{ color: statusColor, fontWeight: 600 }}>
+          {aluno.totalDisciplinasRisco}
         </p>
       </div>
 
       {/* Disciplinas em alerta */}
       {aluno.totalDisciplinasRisco > 0 && (
         <div className="mb-4">
-          <p className="mb-2 text-xs text-zinc-500">
-            {aluno.totalDisciplinasRisco} disciplina{aluno.totalDisciplinasRisco !== 1 ? "s" : ""} em alerta
-          </p>
           <div className="flex flex-wrap gap-1.5">
             {aluno.disciplinas.slice(0, 5).map(d => (
               <span
                 key={d.disciplinaId}
-                className="inline-flex items-center gap-1 rounded-full border border-red-900/50 bg-red-950/30 px-2.5 py-0.5 text-xs"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs"
+                style={{
+                  borderRadius: "var(--radius-pill)",
+                  background: "var(--status-danger-tint)",
+                  color: "var(--status-danger-bg)",
+                  border: "1px solid rgba(224,82,74,0.2)",
+                }}
               >
-                <span className="font-bold text-red-400">{d.codigo}</span>
-                <span className="text-red-300">{d.nota.toFixed(1).replace(".", ",")}</span>
+                <span className="font-semibold">{d.codigo}</span>
+                <span>{d.nota.toFixed(1).replace(".", ",")}</span>
+                {d.emConselho && <span className="font-semibold">· Conselho</span>}
               </span>
             ))}
             {aluno.disciplinas.length > 5 && (
-              <span className="inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500">
+              <span
+                className="inline-flex items-center px-2 py-0.5 text-xs"
+                style={{
+                  borderRadius: "var(--radius-pill)",
+                  border: "1px solid var(--border-subtle)",
+                  color: "var(--text-secondary)",
+                }}
+              >
                 +{aluno.disciplinas.length - 5}
               </span>
             )}
@@ -376,16 +488,12 @@ function StudentCard({
       )}
 
       {/* CTA */}
-      <div className={`mt-1 flex items-center justify-end gap-1 text-xs font-medium transition-colors ${
-        isCritico
-          ? "text-red-600 group-hover:text-red-400"
-          : "text-amber-600 group-hover:text-amber-400"
-      }`}>
+      <div
+        className="mt-1 flex items-center justify-end gap-1 text-xs font-medium"
+        style={{ color: "var(--text-link)" }}
+      >
         Ver detalhes
-        <svg
-          className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-        >
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </div>
@@ -401,6 +509,9 @@ function DrawerContent({
   onClose: () => void
 }) {
   const isCritico = aluno.status === "critico"
+  const statusColor = isCritico ? "var(--status-danger-bg)" : "#E8860C"
+  const statusSolidBg = isCritico ? "var(--status-danger-solid)" : "var(--status-warning-solid-bg)"
+  const statusTextOnSolid = isCritico ? "#FFFFFF" : "var(--status-warning-solid-text)"
 
   return (
     <div className="p-6 pb-10">
@@ -408,67 +519,77 @@ function DrawerContent({
       <div className="mb-6 flex items-center justify-between">
         <button
           onClick={onClose}
-          className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-400 transition hover:border-zinc-600 hover:text-white"
+          className="flex items-center gap-2 px-3 py-2 text-sm transition"
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--text-secondary)",
+            background: "var(--bg-card)",
+          }}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Fechar
         </button>
-        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-          isCritico
-            ? "border-red-900/50 bg-red-950/50 text-red-400"
-            : "border-amber-900/40 bg-amber-950/40 text-amber-400"
-        }`}>
-          {isCritico ? "🔴 Crítico" : "🟡 Ponto de Atenção"}
+        <span
+          className="px-3 py-1 text-xs font-semibold"
+          style={{
+            borderRadius: "var(--radius-pill)",
+            background: statusSolidBg,
+            color: statusTextOnSolid,
+          }}
+        >
+          {isCritico ? "Pré-Reprovado" : "Ponto de Atenção"}
         </span>
       </div>
 
       {/* Perfil do aluno */}
-      <div className={`mb-6 rounded-2xl border p-5 ${
-        isCritico
-          ? "border-red-900/40 bg-gradient-to-br from-red-950/30 to-zinc-950"
-          : "border-amber-900/40 bg-gradient-to-br from-amber-950/20 to-zinc-950"
-      }`}>
-        <p className="mb-0.5 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+      <div
+        className="mb-6 p-5"
+        style={{
+          border: "1px solid var(--border-subtle)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--bg-app)",
+        }}
+      >
+        <p
+          className="mb-0.5 text-xs font-medium uppercase tracking-widest"
+          style={{ color: "var(--text-secondary)" }}
+        >
           {aluno.turmaNome}
         </p>
-        <h2 className="mb-4 text-xl font-black text-white">{aluno.nome}</h2>
+        <h2
+          className="mb-4 text-lg"
+          style={{ color: "var(--text-primary)", fontWeight: 600 }}
+        >
+          {aluno.nome}
+        </h2>
 
         <div>
-          <p className="text-xs text-zinc-500">Média geral</p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Disciplinas em risco
+          </p>
           <div className="mt-1 flex items-end gap-2">
-            <span className={`text-5xl font-black ${isCritico ? "text-red-300" : "text-amber-300"}`}>
-              {aluno.mediaGeral !== null
-                ? aluno.mediaGeral.toFixed(1).replace(".", ",")
-                : "—"}
+            <span className="text-4xl" style={{ color: statusColor, fontWeight: 600 }}>
+              {aluno.totalDisciplinasRisco}
             </span>
-            <span className="mb-1.5 text-sm text-zinc-600">/ 10,0</span>
+            <span className="mb-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+              {aluno.totalDisciplinasRisco === 1 ? "disciplina pré-reprovada" : "disciplinas pré-reprovadas"}
+            </span>
           </div>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
+            É essa contagem — não a média geral — que define o status do aluno: 3+ é Pré-Reprovado, 1–2 é Atenção.
+          </p>
         </div>
-
-        {/* Mini progress */}
-        {aluno.mediaGeral !== null && (
-          <div className="mt-3">
-            <div className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${getBgBarra(aluno.mediaGeral)}`}
-                style={{ width: `${(aluno.mediaGeral / 10) * 100}%` }}
-              />
-              <div className="absolute top-0 h-full w-px bg-zinc-500/60" style={{ left: "50%" }} />
-            </div>
-            <div className="mt-1 flex justify-between text-xs text-zinc-600">
-              <span>0</span>
-              <span>5,0 (mínimo)</span>
-              <span>10</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Disciplinas */}
       <div>
-        <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400">
+        <h3
+          className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-secondary)" }}
+        >
           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
@@ -482,11 +603,21 @@ function DrawerContent({
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 text-center">
-            <p className="text-sm text-zinc-400">
-              Nenhuma disciplina individualmente abaixo de 5,0.
+          <div
+            className="p-5 text-center"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-card)",
+            }}
+          >
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Nenhuma disciplina pré-reprovada individualmente.
             </p>
-            <p className="mt-1.5 text-xs text-zinc-600">
+            <p
+              className="mt-1.5 text-xs"
+              style={{ color: "var(--text-secondary)", opacity: 0.6 }}
+            >
               A baixa média resulta da combinação entre as disciplinas cursadas.
             </p>
           </div>
@@ -505,36 +636,82 @@ function DisciplinaBar({
   const isBaixo = disciplina.nota < 5
 
   return (
-    <div className={`rounded-xl border p-3.5 transition ${
-      isBaixo
-        ? "border-red-900/40 bg-red-950/15"
-        : "border-zinc-800 bg-zinc-900/50"
-    }`}>
+    <div
+      className="p-3.5 transition"
+      style={{
+        border: `1px solid ${isBaixo ? "rgba(224,82,74,0.3)" : "var(--border-subtle)"}`,
+        borderRadius: "var(--radius-sm)",
+        background: isBaixo ? "var(--status-danger-tint)" : "var(--bg-card)",
+      }}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="shrink-0 rounded-md border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-xs font-black text-zinc-300">
+          <span
+            className="shrink-0 px-2 py-0.5 text-xs font-semibold"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-secondary)",
+              background: "var(--bg-app)",
+            }}
+          >
             {disciplina.codigo}
           </span>
-          <span className="truncate text-sm font-medium text-zinc-200">{disciplina.nome}</span>
+          <span
+            className="truncate text-sm font-medium"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {disciplina.nome}
+          </span>
+          {disciplina.emConselho && (
+            <span
+              className="shrink-0 px-2 py-0.5 text-xs font-semibold"
+              style={{
+                borderRadius: "var(--radius-pill)",
+                background: "var(--status-warning-tint)",
+                color: "#7A5800",
+              }}
+            >
+              Conselho
+            </span>
+          )}
         </div>
-        <span className={`shrink-0 text-xl font-black ${
-          disciplina.nota < 5 ? "text-red-400" : disciplina.nota < 7 ? "text-amber-400" : "text-emerald-400"
-        }`}>
+        <span
+          className="shrink-0 text-lg font-semibold"
+          style={{
+            color:
+              disciplina.nota < 5
+                ? "var(--status-danger-bg)"
+                : disciplina.nota < 7
+                ? "#E8860C"
+                : "var(--status-success-bg)",
+          }}
+        >
           {disciplina.nota.toFixed(1).replace(".", ",")}
         </span>
       </div>
 
-      <div className="relative h-2 overflow-hidden rounded-full bg-zinc-800">
+      <div
+        className="relative h-2 overflow-hidden"
+        style={{ background: "var(--border-subtle)", borderRadius: "var(--radius-pill)" }}
+      >
         <div
-          className={`h-full rounded-full ${getBgBarra(disciplina.nota)}`}
-          style={{ width: `${percentage}%` }}
+          className="h-full"
+          style={{
+            width: `${percentage}%`,
+            background: getBarColor(disciplina.nota),
+            borderRadius: "var(--radius-pill)",
+          }}
         />
         <div
-          className="absolute top-0 h-full w-px bg-zinc-500/60"
-          style={{ left: "50%" }}
+          className="absolute top-0 h-full w-px"
+          style={{ background: "var(--text-secondary)", opacity: 0.3, left: "50%" }}
         />
       </div>
-      <div className="mt-1 flex justify-between text-xs text-zinc-600">
+      <div
+        className="mt-1 flex justify-between text-xs"
+        style={{ color: "var(--text-secondary)" }}
+      >
         <span>0</span>
         <span>5,0</span>
         <span>10</span>

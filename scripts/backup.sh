@@ -20,7 +20,15 @@ ARQUIVO="$DESTINO/escola_${TIMESTAMP}.sql.gz"
 
 docker exec "$CONTAINER_DB" pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$ARQUIVO"
 
+# Nunca anuncia nem aplica retenção sobre um dump incompleto/corrompido.
+test -s "$ARQUIVO"
+gzip -t "$ARQUIVO"
+zgrep -q -- '-- PostgreSQL database dump complete' "$ARQUIVO"
+
+SHA256=$(sha256sum "$ARQUIVO" | cut -d' ' -f1)
+
 echo "Backup salvo em $ARQUIVO ($(du -h "$ARQUIVO" | cut -f1))"
+echo "SHA-256: $SHA256"
 
 # Remove backups mais antigos que RETENCAO_DIAS
 find "$DESTINO" -name 'escola_*.sql.gz' -mtime +"$RETENCAO_DIAS" -delete

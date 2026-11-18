@@ -1,3 +1,5 @@
+import InfoTooltip from "../InfoTooltip";
+
 type DisciplinaItem = {
   disciplina: {
     id: string;
@@ -15,10 +17,33 @@ type Props = {
 };
 
 function getSeveridade(percentual: number) {
-  if (percentual >= 30) return { label: "Crítico",  cls: "border-red-500/30 bg-red-500/10 text-red-400" };
-  if (percentual >= 20) return { label: "Alerta",   cls: "border-amber-500/30 bg-amber-500/10 text-amber-400" };
-  if (percentual >= 10) return { label: "Atenção",  cls: "border-yellow-500/30 bg-yellow-500/10 text-yellow-400" };
-  return                       { label: "Bom",      cls: "border-green-500/30 bg-green-500/10 text-green-400" };
+  if (percentual >= 30)
+    return {
+      label: "Crítico",
+      badgeBg: "var(--status-danger-bg)",
+      badgeColor: "#FFFFFF",
+      barColor: "var(--status-danger-bg)",
+    };
+  if (percentual >= 20)
+    return {
+      label: "Alerta",
+      badgeBg: "#E8860C",
+      badgeColor: "#FFFFFF",
+      barColor: "#E8860C",
+    };
+  if (percentual >= 10)
+    return {
+      label: "Atenção",
+      badgeBg: "var(--status-warning-bg)",
+      badgeColor: "var(--text-primary)",
+      barColor: "var(--status-warning-bg)",
+    };
+  return {
+    label: "Bom",
+    badgeBg: "var(--status-success-bg)",
+    badgeColor: "#FFFFFF",
+    barColor: "var(--status-success-bg)",
+  };
 }
 
 function GraficoDisciplinas({
@@ -31,69 +56,123 @@ function GraficoDisciplinas({
   disciplinas: DisciplinaItem[];
 }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-
-      <div className="relative z-10 mb-8">
-        <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
+    <div
+      className="p-6 md:p-8"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      <div className="mb-6">
+        <div
+          className="mb-2 inline-flex px-3 py-1 text-xs font-medium"
+          style={{
+            background: "var(--bg-app)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-pill)",
+            color: "var(--text-secondary)",
+          }}
+        >
           Análise curricular
         </div>
-        <h2 className="text-2xl font-black tracking-tight text-white md:text-3xl">
+        <h2
+          className="flex items-center gap-1.5 text-lg tracking-tight"
+          style={{ color: "var(--text-primary)", fontWeight: 600 }}
+        >
           {titulo}
+          <InfoTooltip
+            align="start"
+            texto="Percentual de notas abaixo de 5,0 sobre o total de notas lançadas na disciplina, neste recorte. Faixas: Bom < 10%, Atenção 10-19%, Alerta 20-29%, Crítico ≥ 30%."
+          />
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-400 md:text-base">
+        <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
           {descricao}
         </p>
       </div>
 
-      <div className="relative z-10 space-y-5">
+      <div className="space-y-4">
         {disciplinas.map((item, index) => {
           const percentual = Math.round(item.percentual);
           const severidade = getSeveridade(percentual);
 
-          const corBarra =
-            percentual >= 30 ? "bg-red-500 shadow-red-500/30" :
-            percentual >= 20 ? "bg-amber-500 shadow-amber-500/30" :
-            percentual >= 10 ? "bg-yellow-500 shadow-yellow-500/30" :
-            "bg-green-500 shadow-green-500/30";
-
           return (
             <div
               key={item.disciplina.id}
-              className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:border-white/20 hover:bg-zinc-900"
+              className="p-4"
+              style={{
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-sm)",
+                background: "var(--bg-app)",
+              }}
             >
               <div className="mb-3 flex items-center gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-xs font-black text-zinc-400">
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center text-xs font-medium"
+                  style={{
+                    background: "var(--border-subtle)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text-secondary)",
+                  }}
+                >
                   {index + 1}
                 </span>
 
-                <span className="min-w-0 flex-1 truncate text-base font-bold text-zinc-100 md:text-lg">
+                <span
+                  className="min-w-0 flex-1 truncate text-sm font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {item.disciplina.nome}
                 </span>
 
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${severidade.cls}`}>
+                  <span
+                    className="px-2.5 py-0.5 text-xs font-semibold"
+                    style={{
+                      borderRadius: "var(--radius-pill)",
+                      background: severidade.badgeBg,
+                      color: severidade.badgeColor,
+                    }}
+                  >
                     {severidade.label}
                   </span>
-                  <span className="rounded-full border border-zinc-700 bg-black/30 px-3 py-1 text-base font-black text-white">
+                  <span
+                    className="px-2.5 py-0.5 text-xs font-semibold"
+                    style={{
+                      borderRadius: "var(--radius-pill)",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
                     {percentual}%
                   </span>
                 </div>
               </div>
 
-              <div className="h-4 w-full overflow-hidden rounded-full bg-zinc-800 ring-1 ring-zinc-700/60 md:h-5">
+              <div
+                className="h-3 w-full overflow-hidden"
+                style={{ background: "var(--border-subtle)", borderRadius: "var(--radius-pill)" }}
+              >
                 <div
-                  className={`${corBarra} h-full rounded-full shadow-lg transition-all duration-700`}
-                  style={{ width: `${percentual}%` }}
+                  className="h-full transition-all duration-700"
+                  style={{
+                    width: `${percentual}%`,
+                    background: severidade.barColor,
+                    borderRadius: "var(--radius-pill)",
+                  }}
                 />
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-zinc-500">
-                <span className="font-semibold text-zinc-400">{item.totalCritico} abaixo de 5,0</span>
-                {item.totalNotas !== undefined && (
-                  <span>de {item.totalNotas} notas</span>
-                )}
+              <div
+                className="mt-2 flex flex-wrap gap-3 text-xs"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                <span style={{ color: "var(--text-primary)", fontWeight: "var(--font-weight-medium)" }}>
+                  {item.totalCritico} abaixo de 5,0
+                </span>
+                {item.totalNotas !== undefined && <span>de {item.totalNotas} notas</span>}
               </div>
             </div>
           );
@@ -101,7 +180,14 @@ function GraficoDisciplinas({
       </div>
 
       {disciplinas.length === 0 && (
-        <div className="relative z-10 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8 text-center text-zinc-400">
+        <div
+          className="p-8 text-center text-sm"
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-sm)",
+            color: "var(--text-secondary)",
+          }}
+        >
           Nenhum dado encontrado para esta etapa.
         </div>
       )}
@@ -111,8 +197,8 @@ function GraficoDisciplinas({
 
 export default function DisciplinasCriticas({ geral, fundamental, medio }: Props) {
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <GraficoDisciplinas
           titulo="Ensino Fundamental"
           descricao="Notas abaixo do básico apenas das turmas do Fundamental."

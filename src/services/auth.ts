@@ -6,6 +6,7 @@ interface LoginResponse {
     role: string
     escola_id: string | null
   }
+  deveTrocarSenha: boolean
 }
 
 export async function login(email: string, senha: string, lembrarAcesso = false): Promise<LoginResponse> {

@@ -23,7 +23,10 @@ export default function BimestreSeletor({ bimestreAtual }: Props) {
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+      <span
+        className="mr-1 text-xs font-semibold uppercase tracking-wide"
+        style={{ color: "var(--text-secondary)" }}
+      >
         Bimestre
       </span>
       {[1, 2, 3, 4].map((b) => (
@@ -32,12 +35,19 @@ export default function BimestreSeletor({ bimestreAtual }: Props) {
           onClick={() => selecionar(b)}
           disabled={pending}
           className={`rounded-full px-3.5 py-1.5 text-sm font-black transition disabled:opacity-50 ${
-            bimestreAtual === b
-              ? "bg-white text-black shadow-lg"
-              : "border border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-white/30 hover:text-white"
+            bimestreAtual === b ? "shadow-lg" : "border"
           }`}
+          style={
+            bimestreAtual === b
+              ? { background: "var(--bg-card)", color: "var(--text-primary)" }
+              : {
+                  background: "var(--bg-app)",
+                  color: "var(--text-secondary)",
+                  borderColor: "var(--border-subtle)",
+                }
+          }
         >
-          {b}º
+          {b}
         </button>
       ))}
     </div>

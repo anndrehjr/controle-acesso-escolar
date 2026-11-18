@@ -5,6 +5,8 @@
 
 ---
 
+> **Estado atual (2026-11):** o sistema roda em produção em VPS própria, em Docker, com PostgreSQL próprio e autenticação própria. Para o funcionamento atual consulte `README.md` e `DOCUMENTACAO_OPERACIONAL.md`; este documento traz a visão geral e o fluxo de dados.
+
 ## 1. Visão Geral
 
 Dashboard pedagógico para acompanhamento de desempenho escolar por bimestre, turma e disciplina. Permite visualizar médias, alunos críticos, comparativos entre bimestres e evolução ao longo do ano.
@@ -15,11 +17,12 @@ Dashboard pedagógico para acompanhamento de desempenho escolar por bimestre, tu
 
 | Camada | Tecnologia |
 |--------|-----------|
-| Framework | Next.js 15 (App Router, Server Components) |
-| Banco de dados | Supabase (PostgreSQL) |
-| ORM/cliente | `@supabase/supabase-js` |
+| Framework | Next.js 16 (App Router, Server Components) |
+| Banco de dados | PostgreSQL 16 (Docker, VPS própria) |
+| Cliente do banco | `postgres` (postgres.js), SQL puro |
+| Autenticação | JWT (`jose`) com senhas em `bcryptjs`; sessões revogáveis |
 | Linguagem | TypeScript |
-| Estilo | Tailwind CSS |
+| Estilo | Tailwind CSS 4 |
 | Gráficos | Recharts v3 |
 | Ícones | Lucide React |
 
@@ -30,10 +33,10 @@ Dashboard pedagógico para acompanhamento de desempenho escolar por bimestre, tu
 Arquivo `.env.local` na raiz do projeto:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=https://<projeto>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<chave-anon>
-SUPABASE_SERVICE_ROLE_KEY=<chave-service-role>   # apenas para o script de importação
-NEXT_PUBLIC_ESCOLA_ID=6b50af3f-8023-497f-bccb-32ceec3d0252
+DATABASE_URL=postgres://<usuario>:<senha>@<host>:5432/<banco>
+JWT_SECRET=<segredo-longo-e-aleatorio>
+NEXT_PUBLIC_ESCOLA_ID=<uuid-da-escola>
+AJUSTE_NOTAS_EMAIL=<e-mail-da-conta-nominal>      # opcional: exceção do ajuste de notas
 ```
 
 ---
@@ -116,7 +119,6 @@ Liga grupos pedagógicos às disciplinas. Define quais disciplinas cada grupo de
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `id` | uuid | PK |
-| `auth_id` | uuid | ID do Supabase Auth |
 | `role` | text | "SUPER_ADMIN" ou "ADMIN_ESCOLA" |
 | `escola_id` | uuid | FK → escolas |
 | `ativo` | boolean | |
@@ -175,10 +177,10 @@ src/
     │   ├── buildDistribuicaoPedagogica.ts
     │   └── buildHeatmapPedagogico.ts
     ├── school-data.ts                 # Dados de turmas e notas (fonte: atas de conselho)
-    └── supabase/server.ts             # Cliente Supabase para Server Components
+    └── db.ts                          # Conexão PostgreSQL (postgres.js)
 
 scripts/
-└── import-school-data.ts              # Script de importação para o Supabase
+└── import-school-data.ts              # Script de importação para o PostgreSQL
 ```
 
 ---
@@ -192,7 +194,7 @@ Ata de Conselho (papel)
         ↓
   import-school-data.ts ← script de importação (ts-node)
         ↓
-    Supabase DB         ← tabelas: turmas, alunos, disciplinas, matriz_disciplinas, notas
+    PostgreSQL          ← tabelas: turmas, alunos, disciplinas, matriz_disciplinas, notas
         ↓
   dashboard/page.tsx    ← Server Component: busca dados + roda analytics
         ↓
@@ -286,43 +288,26 @@ const BIMESTRE = 2;  // era 1
 **Passo 3 — Rodar o script**
 
 ```bash
-npx ts-node --project tsconfig.json scripts/import-school-data.ts
+npm run import:school        # simulação por padrão; só grava com --apply --confirm=<código>
 ```
 
-**Passo 4 — Atualizar o bimestre atual no Supabase**
+**Passo 4 — Atualizar o bimestre atual no banco**
 
-No Supabase Studio, rode:
+No banco (psql), rode:
 
 ```sql
 UPDATE escolas
 SET bimestre_atual = 2
-WHERE id = '6b50af3f-8023-497f-bccb-32ceec3d0252';
+WHERE id = '<uuid-da-escola>';
 ```
 
 Isso faz o dashboard abrir no B2 por padrão.
 
 ---
 
-### 9.2 ⚠️ ATENÇÃO CRÍTICA — Bug no script de limpeza
+### 9.2 Segurança da importação
 
-O script atual apaga **todas** as notas da escola antes de importar:
-
-```typescript
-// LINHA ATUAL (ERRADA para B2+):
-await supabase.from("notas").delete().eq("escola_id", ESCOLA_ID);
-// ↑ ISSO APAGA OS DADOS DO B1 TAMBÉM!
-```
-
-**Corrija isso antes de rodar para o B2.** A linha 100 do script deve ser:
-
-```typescript
-// CORRETO: apaga apenas as notas do bimestre sendo importado
-await supabase.from("notas").delete()
-  .eq("escola_id", ESCOLA_ID)
-  .eq("bimestre", BIMESTRE);   // ← adicione esta linha
-```
-
-A `matriz_disciplinas` pode continuar sendo limpa e recriada normalmente (não depende do bimestre).
+O aviso que existia aqui era sobre a primeira versão do script de limpeza. O script atual (`npm run import:school`) trabalha em **modo simulação por padrão** e só grava com `--apply --confirm=<código>`. Antes de importar um novo bimestre, rode a simulação e confira o plano (criar / atualizar / inalterado). Faça **backup do banco** antes de aplicar.
 
 ---
 

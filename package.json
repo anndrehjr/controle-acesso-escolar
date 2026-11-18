@@ -6,30 +6,36 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test src/lib/analytics/*.test.ts src/lib/permissions.test.ts src/lib/auth-session.test.ts src/lib/notas-batch.test.ts src/lib/relatorios.test.ts src/lib/avaliacoes.test.ts src/lib/projecao-notas.test.ts src/lib/recuperacao.test.ts scripts/*.test.ts",
+    "import:school": "tsx scripts/import-school-data.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
-    "jose": "^6.2.3",
-    "lucide-react": "^1.16.0",
-    "next": "16.2.6",
+    "fflate": "^0.8.2",
+    "jose": "^6.2.15",
+    "lucide-react": "^1.70.0",
+    "motion": "^14.10.1",
+    "next": "16.4.5",
     "postgres": "^3.4.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "recharts": "^3.8.1",
-    "tsx": "^4.22.3"
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "^10.1.0",
+    "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.4.5",
     "playwright": "^1.60.0",
-    "tailwindcss": "^4",
+    "tailwindcss": "^4.3.5",
     "typescript": "^5"
   }
 }

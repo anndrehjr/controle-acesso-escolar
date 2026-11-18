@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
-import { buildAlertas } from "../../../../lib/analytics/buildAlertas";
+import { buildRiscoAcademico } from "../../../../lib/analytics/buildRiscoAcademico";
 import { cache } from "../../../../lib/cache";
 import { resolveEscolaAccess, turmasVisiveis } from "../../../../lib/permissions";
 import { capabilitiesFor } from "../../../../types/roles";
@@ -73,6 +73,11 @@ export async function GET(request: Request) {
       (n) => Number(n.bimestre) === bimestreAtual && Number(n.ano_letivo) === anoLetivo
     );
 
+    // Risco acadêmico é cumulativo: todos os bimestres já lançados no ano (1..bimestreAtual)
+    const notasAno = todasNotas.filter(
+      (n) => Number(n.bimestre) <= bimestreAtual && Number(n.ano_letivo) === anoLetivo
+    );
+
     const restringirTurma = !capabilitiesFor(perfil.role).viewAllTurmasDaEscola;
     const turmasPermitidas = restringirTurma ? await turmasVisiveis(perfil, escolaResolvida) : null;
     const turmas = turmasPermitidas ? turmasTodas.filter((t) => turmasPermitidas.includes(t.id)) : turmasTodas;
@@ -82,6 +87,9 @@ export async function GET(request: Request) {
     const notas = turmasPermitidas
       ? notasBimestre.filter((n) => turmasPermitidas.includes(n.turma_id as string))
       : notasBimestre;
+    const notasRisco = turmasPermitidas
+      ? notasAno.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+      : notasAno;
 
     const dashboard = buildSchoolDashboard({
       alunos,
@@ -92,8 +100,14 @@ export async function GET(request: Request) {
       anoLetivo,
     });
 
-    // Use same rule as SSR: 4+ disciplines < 5 = crítico, 2-3 = atenção
-    const alertas = buildAlertas({ alunos, notas, turmas, disciplinas, matriz });
+    // Risco anual: pré-reprovado por disciplina (média atual < 5) · crítico = aluno com 3+ disciplinas em risco
+    const alertas = buildRiscoAcademico({
+      alunos,
+      notas: notasRisco,
+      turmas,
+      disciplinas,
+      matriz,
+    });
 
     return NextResponse.json({
       data: {

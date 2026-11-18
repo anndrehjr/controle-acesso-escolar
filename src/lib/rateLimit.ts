@@ -53,6 +53,41 @@ export async function registrarTentativaLogin(email: string, ip: string, sucesso
   }
 }
 
+/**
+ * Limite de ações administrativas sensíveis (ex: resetar senha — F-06 da auditoria), diferente
+ * do bloqueio de login: aqui TODA tentativa conta pro limite, não só as que falham — o risco
+ * não é alguém "chutando senha", é uma conta admin (comprometida ou não) fazendo a mesma ação
+ * sensível em sequência rápida demais. Reaproveita a mesma tabela tentativas_login (schema já
+ * é genérico o bastante: quem fez, de onde, quando), só com a contagem sem filtrar por sucesso.
+ */
+export async function verificarLimiteAcao(chave: string, ip: string): Promise<StatusBloqueio> {
+  const [porChave, porIp] = await Promise.all([
+    db<{ total: number }[]>`
+      SELECT count(*)::int AS total FROM tentativas_login
+      WHERE email = ${chave.toLowerCase().trim()}
+        AND created_at > now() - (${JANELA_MINUTOS} || ' minutes')::interval
+    `,
+    db<{ total: number }[]>`
+      SELECT count(*)::int AS total FROM tentativas_login
+      WHERE ip = ${ip}
+        AND created_at > now() - (${JANELA_MINUTOS} || ' minutes')::interval
+    `,
+  ])
+
+  const total = Math.max(porChave[0]?.total ?? 0, porIp[0]?.total ?? 0)
+  const bloqueado = total >= MAX_TENTATIVAS
+
+  return {
+    bloqueado,
+    tentativasRestantes: Math.max(0, MAX_TENTATIVAS - total),
+    minutosParaLiberar: bloqueado ? JANELA_MINUTOS : 0,
+  }
+}
+
+export async function registrarAcao(chave: string, ip: string): Promise<void> {
+  await registrarTentativaLogin(chave, ip, true)
+}
+
 export function ipDaRequisicao(req: Request): string {
   return (
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??

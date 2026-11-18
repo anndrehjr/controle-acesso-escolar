@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
+import StyledSelect from "../../../components/StyledSelect";
 import { useUsuarioAtual } from "../../../hooks/useUsuarioAtual";
+import { rolesWithCapability } from "../../../types/roles";
+
+const ROLES_GESTAO_USUARIOS = rolesWithCapability("manageUsuarios");
 
 type Usuario = {
   id: string;
@@ -13,9 +17,22 @@ type Usuario = {
   ativo: boolean;
 };
 
+type Escola = {
+  id: string;
+  nome: string;
+};
+
+const inputStyle: React.CSSProperties = {
+  background: "var(--bg-app)",
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-sm)",
+  color: "var(--text-primary)",
+};
+
 function ConteudoUsuarios() {
   const { usuario, capacidades } = useUsuarioAtual();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [escolas, setEscolas] = useState<Escola[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState<string | null>(null);
@@ -23,10 +40,12 @@ function ConteudoUsuarios() {
   const [novoNome, setNovoNome] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
   const [novoRole, setNovoRole] = useState("PROFESSOR");
+  const [novaEscolaId, setNovaEscolaId] = useState("");
   const [criando, setCriando] = useState(false);
 
   const [resetandoId, setResetandoId] = useState<string | null>(null);
   const [novaSenha, setNovaSenha] = useState("");
+  const [alterandoId, setAlterandoId] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -35,6 +54,9 @@ function ConteudoUsuarios() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao carregar usuários");
       setUsuarios(json.data ?? []);
+      const listaEscolas = (json.escolas ?? []) as Escola[];
+      setEscolas(listaEscolas);
+      setNovaEscolaId((atual) => atual || listaEscolas[0]?.id || "");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro inesperado");
     } finally {
@@ -61,7 +83,7 @@ function ConteudoUsuarios() {
           nome: novoNome,
           email: novoEmail,
           role: novoRole,
-          escolaId: usuario?.escola_id ?? undefined,
+          escolaId: capacidades?.viewAllEscolas ? novaEscolaId : usuario?.escola_id ?? undefined,
         }),
       });
       const json = await res.json();
@@ -92,7 +114,7 @@ function ConteudoUsuarios() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao redefinir senha");
-      setMensagem("Senha redefinida com sucesso.");
+      setMensagem("Senha redefinida e sessões anteriores revogadas.");
       setResetandoId(null);
       setNovaSenha("");
     } catch (e) {
@@ -100,36 +122,86 @@ function ConteudoUsuarios() {
     }
   }
 
+  async function handleAlterarStatus(alvo: Usuario) {
+    const acao = alvo.ativo ? "desativar" : "ativar";
+    if (!window.confirm(`Confirma ${acao} ${alvo.nome}?`)) return;
+    setAlterandoId(alvo.id);
+    setErro(null);
+    setMensagem(null);
+    try {
+      const res = await fetch(`/api/usuarios/${alvo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !alvo.ativo }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Erro ao alterar usuário");
+      setMensagem(alvo.ativo
+        ? "Usuário desativado e todas as sessões revogadas."
+        : "Usuário ativado com sucesso.");
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro inesperado");
+    } finally {
+      setAlterandoId(null);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 md:p-8 text-white">
+    <main className="min-h-screen p-6 md:p-8" style={{ background: "var(--bg-app)", color: "var(--text-primary)" }}>
       <h1 className="text-2xl font-bold">Usuários</h1>
-      <p className="mt-1 text-sm text-zinc-400">
+      <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
         {capacidades?.viewAllEscolas
           ? "Todos os usuários do sistema."
           : "Usuários da sua escola."}
       </p>
 
       {erro && (
-        <div className="mt-4 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-300">
+        <div
+          className="mt-4 p-3 text-sm"
+          style={{
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--status-danger-bg)",
+            background: "var(--status-danger-tint)",
+            color: "var(--status-danger-bg)",
+          }}
+        >
           {erro}
         </div>
       )}
       {mensagem && (
-        <div className="mt-4 rounded-xl border border-green-900/60 bg-green-950/40 p-3 text-sm text-green-300">
+        <div
+          className="mt-4 p-3 text-sm"
+          style={{
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--status-success-bg)",
+            background: "var(--status-success-tint)",
+            color: "var(--status-success-bg)",
+          }}
+        >
           {mensagem}
         </div>
       )}
 
       <form
         onSubmit={handleCriar}
-        className="mt-6 grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 sm:grid-cols-4"
+        className={`mt-6 grid gap-3 p-5 ${capacidades?.viewAllEscolas ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}
+        style={{
+          borderRadius: "var(--radius-sm)",
+          border: "1px solid var(--border-subtle)",
+          background: "var(--bg-card)",
+          boxShadow: "var(--shadow-card)",
+        }}
       >
         <input
           required
           placeholder="Nome"
           value={novoNome}
           onChange={(e) => setNovoNome(e.target.value)}
-          className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm sm:col-span-1"
+          className="p-2 text-sm outline-none transition sm:col-span-1"
+          style={inputStyle}
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
+          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         />
         <input
           required
@@ -137,29 +209,69 @@ function ConteudoUsuarios() {
           placeholder="E-mail"
           value={novoEmail}
           onChange={(e) => setNovoEmail(e.target.value)}
-          className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm sm:col-span-1"
+          className="p-2 text-sm outline-none transition sm:col-span-1"
+          style={inputStyle}
+          onFocus={(e) => (e.currentTarget.style.boxShadow = "var(--focus-ring)")}
+          onBlur={(e) => (e.currentTarget.style.boxShadow = "none")}
         />
-        <select
+        <StyledSelect
           value={novoRole}
           onChange={(e) => setNovoRole(e.target.value)}
-          className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-sm sm:col-span-1"
+          className="p-2 text-sm sm:col-span-1"
+          style={inputStyle}
         >
           <option value="PROFESSOR">Professor</option>
           <option value="LEITOR">Somente leitura</option>
           {capacidades?.viewAllEscolas && <option value="ADMIN_ESCOLA">Coordenador</option>}
-        </select>
+        </StyledSelect>
+        {capacidades?.viewAllEscolas && (
+          <StyledSelect
+            required
+            value={novaEscolaId}
+            onChange={(e) => setNovaEscolaId(e.target.value)}
+            className="p-2 text-sm sm:col-span-1"
+            style={inputStyle}
+          >
+            <option value="">Escola</option>
+            {escolas.map((escola) => (
+              <option key={escola.id} value={escola.id}>{escola.nome}</option>
+            ))}
+          </StyledSelect>
+        )}
         <button
           type="submit"
-          disabled={criando}
-          className="rounded-lg bg-white p-2 text-sm font-bold text-black disabled:opacity-50"
+          disabled={criando || (capacidades?.viewAllEscolas === true && !novaEscolaId)}
+          className="p-2 text-sm font-semibold transition disabled:opacity-50"
+          style={{
+            borderRadius: "var(--radius-sm)",
+            background: "var(--brand-primary-solid)",
+            color: "var(--status-text-on-color)",
+          }}
+          onMouseEnter={(e) => {
+            if (!criando) (e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-hover)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--brand-primary-solid)";
+          }}
         >
           {criando ? "Criando..." : "Criar usuário"}
         </button>
       </form>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-800">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-950/60 text-left text-xs uppercase text-zinc-500">
+      <div
+        className="mt-6 overflow-x-auto"
+        style={{
+          borderRadius: "var(--radius-sm)",
+          border: "1px solid var(--border-subtle)",
+          background: "var(--bg-card)",
+          boxShadow: "var(--shadow-card)",
+        }}
+      >
+        <table className="w-full min-w-[640px] text-sm">
+          <thead
+            className="text-left text-xs uppercase tracking-wide"
+            style={{ background: "var(--bg-app)", color: "var(--text-secondary)" }}
+          >
             <tr>
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">E-mail</th>
@@ -171,22 +283,29 @@ function ConteudoUsuarios() {
           <tbody>
             {carregando && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--text-secondary)" }}>
                   Carregando...
+                </td>
+              </tr>
+            )}
+            {!carregando && usuarios.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--text-secondary)" }}>
+                  Nenhum usuário encontrado.
                 </td>
               </tr>
             )}
             {!carregando &&
               usuarios.map((u) => (
-                <tr key={u.id} className="border-t border-zinc-800">
+                <tr key={u.id} style={{ borderTop: "1px solid var(--border-subtle)" }}>
                   <td className="px-4 py-3 font-medium">{u.nome}</td>
-                  <td className="px-4 py-3 text-zinc-400">{u.email}</td>
-                  <td className="px-4 py-3 text-zinc-400">{u.role}</td>
+                  <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{u.email}</td>
+                  <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>{u.role}</td>
                   <td className="px-4 py-3">
                     {u.ativo ? (
-                      <span className="text-green-400">Ativo</span>
+                      <span style={{ color: "var(--status-success-bg)" }}>Ativo</span>
                     ) : (
-                      <span className="text-zinc-500">Inativo</span>
+                      <span style={{ color: "var(--text-secondary)" }}>Inativo</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -197,11 +316,17 @@ function ConteudoUsuarios() {
                           placeholder="Nova senha"
                           value={novaSenha}
                           onChange={(e) => setNovaSenha(e.target.value)}
-                          className="w-32 rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 text-xs"
+                          className="w-32 p-1.5 text-xs outline-none"
+                          style={inputStyle}
                         />
                         <button
                           onClick={() => handleResetarSenha(u.id)}
-                          className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-bold text-black"
+                          className="px-2.5 py-1.5 text-xs font-semibold transition"
+                          style={{
+                            borderRadius: "var(--radius-sm)",
+                            background: "var(--brand-primary-solid)",
+                            color: "var(--status-text-on-color)",
+                          }}
                         >
                           Salvar
                         </button>
@@ -210,18 +335,30 @@ function ConteudoUsuarios() {
                             setResetandoId(null);
                             setNovaSenha("");
                           }}
-                          className="text-xs text-zinc-500 hover:text-zinc-300"
+                          className="text-xs transition"
+                          style={{ color: "var(--text-secondary)" }}
                         >
                           Cancelar
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setResetandoId(u.id)}
-                        className="text-xs font-medium text-zinc-300 hover:text-white"
-                      >
-                        Redefinir senha
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => setResetandoId(u.id)}
+                          className="text-xs font-medium transition"
+                          style={{ color: "var(--text-link)" }}
+                        >
+                          Redefinir senha
+                        </button>
+                        <button
+                          onClick={() => void handleAlterarStatus(u)}
+                          disabled={alterandoId === u.id || u.id === usuario?.id}
+                          className="text-xs font-medium transition disabled:opacity-40"
+                          style={{ color: u.ativo ? "var(--status-danger-bg)" : "var(--status-success-bg)" }}
+                        >
+                          {alterandoId === u.id ? "Salvando..." : u.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -235,7 +372,7 @@ function ConteudoUsuarios() {
 
 export default function UsuariosPage() {
   return (
-    <AuthGuard allow={["SUPER_ADMIN"]}>
+    <AuthGuard allow={ROLES_GESTAO_USUARIOS}>
       <ConteudoUsuarios />
     </AuthGuard>
   );

@@ -1,12 +1,14 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireAuth } from "../../../../lib/requireAuth";
 import db from "../../../../lib/db";
+import { podeVerTurma, resolveEscolaAccess } from "../../../../lib/permissions";
 import Link from "next/link";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle } from "lucide-react";
 import { cache } from "../../../../lib/cache";
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../../../lib/analytics/types";
+import { avaliarDisciplina, statusAlunoPorRisco } from "../../../../lib/analytics/avaliarDisciplina";
+import InfoTooltip from "../../../../components/InfoTooltip";
 
-const ESCOLA_ID = process.env.NEXT_PUBLIC_ESCOLA_ID!;
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -14,19 +16,26 @@ type PageProps = {
 };
 
 function getNivel(media: number) {
-  if (media < 5) return { label: "Abaixo do Básico", cor: "text-red-300 border-red-500/30 bg-red-950/30" };
-  if (media < 7) return { label: "Básico",           cor: "text-amber-300 border-amber-500/30 bg-amber-950/30" };
-  if (media < 9) return { label: "Adequado",         cor: "text-green-300 border-green-500/30 bg-green-950/30" };
-  return               { label: "Avançado",          cor: "text-blue-300 border-blue-500/30 bg-blue-950/30" };
+  if (media < 5) return { label: "Abaixo do Básico", statusColor: "var(--status-danger-bg)", bg: "var(--status-danger-tint)" };
+  if (media < 7) return { label: "Básico", statusColor: "#E8860C", bg: "var(--status-warning-tint)" };
+  if (media < 8) return { label: "Adequado", statusColor: "var(--status-success-bg)", bg: "var(--status-success-tint)" };
+  return { label: "Avançado", statusColor: "var(--brand-primary)", bg: "var(--bg-sidebar-active)" };
 }
 
-function getClasseNota(nota: number | null, destaque = false) {
-  const base = destaque ? "ring-2" : "ring-1";
-  if (nota === null) return `bg-zinc-800 text-zinc-500 ${base} ring-zinc-700`;
-  if (nota < 5)  return `bg-red-500/15 text-red-300 ${base} ring-red-500/30`;
-  if (nota < 7)  return `bg-amber-500/15 text-amber-300 ${base} ring-amber-500/30`;
-  if (nota < 9)  return `bg-green-500/15 text-green-300 ${base} ring-green-500/30`;
-  return              `bg-blue-500/15 text-blue-300 ${base} ring-blue-500/30`;
+function getNotaColor(nota: number | null): string {
+  if (nota === null) return "var(--text-secondary)";
+  if (nota < 5) return "var(--status-danger-bg)";
+  if (nota < 7) return "#E8860C";
+  if (nota < 8) return "var(--status-success-bg)";
+  return "var(--brand-primary)";
+}
+
+function getNotaBg(nota: number | null): string {
+  if (nota === null) return "var(--bg-app)";
+  if (nota < 5) return "var(--status-danger-tint)";
+  if (nota < 7) return "var(--status-warning-tint)";
+  if (nota < 8) return "var(--status-success-tint)";
+  return "var(--bg-sidebar-active)";
 }
 
 function inferirGrupo(nome: string): string {
@@ -36,10 +45,18 @@ function inferirGrupo(nome: string): string {
   return "";
 }
 
-async function buscarNotasBimestre(alunoId: string, bimestre: number): Promise<Nota[]> {
+async function buscarNotasBimestre(
+  escolaId: string,
+  alunoId: string,
+  anoLetivo: number,
+  bimestre: number
+): Promise<Nota[]> {
   const rows = await db`
     SELECT * FROM notas
-    WHERE escola_id = ${ESCOLA_ID} AND aluno_id = ${alunoId} AND bimestre = ${bimestre}
+    WHERE escola_id = ${escolaId}
+      AND aluno_id = ${alunoId}
+      AND ano_letivo = ${anoLetivo}
+      AND bimestre = ${bimestre}
   `;
   return rows as unknown as Nota[];
 }
@@ -51,30 +68,40 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { turmaId: turmaIdParam } = await searchParams;
 
-  const [alunoRaw, escola, disciplinas, matriz] = await Promise.all([
-    cache.getOrSet(`aluno:${ESCOLA_ID}:${id}`, async () => {
-      const rows = await db`SELECT * FROM alunos WHERE id = ${id} AND escola_id = ${ESCOLA_ID} LIMIT 1`;
-      return (rows[0] ?? null) as Aluno | null;
-    }),
-    cache.getOrSet(`escola:${ESCOLA_ID}`, async () => {
-      const rows = await db`SELECT * FROM escolas WHERE id = ${ESCOLA_ID} LIMIT 1`;
+  const alunoRows = await db`SELECT * FROM alunos WHERE id = ${id} LIMIT 1`;
+  const alunoRaw = (alunoRows[0] ?? null) as Aluno | null;
+  if (!alunoRaw) notFound();
+
+  const escolaId = resolveEscolaAccess(usuario, alunoRaw.escola_id);
+  if (!escolaId || !(await podeVerTurma(usuario, escolaId, alunoRaw.turma_id))) {
+    // A mesma resposta e usada para aluno inexistente e sem permissao, sem revelar o UUID.
+    notFound();
+  }
+
+  const [escola, disciplinas, matriz] = await Promise.all([
+    cache.getOrSet(`escola:${escolaId}`, async () => {
+      const rows = await db`SELECT * FROM escolas WHERE id = ${escolaId} LIMIT 1`;
       return rows[0] ?? null;
     }),
-    cache.getOrSet(`disciplinas:${ESCOLA_ID}`, async () => {
-      const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+    cache.getOrSet(`disciplinas:${escolaId}`, async () => {
+      const rows = await db`SELECT * FROM disciplinas WHERE escola_id = ${escolaId}`;
       return rows as unknown as Disciplina[];
     }),
-    cache.getOrSet(`matriz:${ESCOLA_ID}`, async () => {
-      const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${ESCOLA_ID}`;
+    cache.getOrSet(`matriz:${escolaId}`, async () => {
+      const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${escolaId}`;
       return rows as unknown as MatrizDisciplina[];
     }),
   ]);
 
   if (!alunoRaw) {
     return (
-      <main className="min-h-screen bg-zinc-900 p-8 text-white">
-        <p className="text-red-400">Aluno não encontrado.</p>
-        <Link href="/dashboard" className="mt-4 inline-flex items-center gap-2 text-zinc-400 hover:text-white">
+      <main className="min-h-screen p-8">
+        <p style={{ color: "var(--status-danger-bg)" }}>Aluno não encontrado.</p>
+        <Link
+          href="/dashboard"
+          className="mt-4 inline-flex items-center gap-2 text-sm"
+          style={{ color: "var(--text-link)" }}
+        >
           <ArrowLeft className="h-4 w-4" /> Voltar ao dashboard
         </Link>
       </main>
@@ -82,15 +109,15 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
   }
 
   const aluno = alunoRaw as Aluno;
+  const anoLetivo = (escola?.ano_letivo as number | undefined) ?? new Date().getFullYear();
   const bimestreAtual = (escola?.bimestre_atual as number | undefined) ?? 1;
   const bimestres = [1, 2, 3, 4];
 
-  const turma = await cache.getOrSet(`turma:${aluno.turma_id}`, async () => {
-    const rows = await db`SELECT * FROM turmas WHERE id = ${aluno.turma_id} LIMIT 1`;
+  const turma = await cache.getOrSet(`turma:${escolaId}:${aluno.turma_id}`, async () => {
+    const rows = await db`SELECT * FROM turmas WHERE id = ${aluno.turma_id} AND escola_id = ${escolaId} LIMIT 1`;
     return (rows[0] ?? null) as Turma | null;
   });
 
-  // grupo_pedagogico with fallback to name inference
   const grpRaw = String(turma?.grupo_pedagogico ?? "").trim().toUpperCase();
   const grupo = grpRaw || inferirGrupo(turma?.nome ?? "");
 
@@ -111,8 +138,8 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
   const notasPorBimestre = await Promise.all(
     bimestres.map(async (b) => ({
       bimestre: b,
-      notas: await cache.getOrSet(`notas:aluno:${aluno.id}:bim:${b}`, () =>
-        buscarNotasBimestre(aluno.id, b)
+      notas: await cache.getOrSet(`notas:aluno:${escolaId}:${aluno.id}:ano:${anoLetivo}:bim:${b}`, () =>
+        buscarNotasBimestre(escolaId, aluno.id, anoLetivo, b)
       ),
     }))
   );
@@ -126,13 +153,13 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
       return nota?.nota !== null && nota?.nota !== undefined ? Number(nota.nota) : null;
     });
 
-    const notasValidas = notasBim.filter((n): n is number => n !== null);
-    const media =
-      notasValidas.length > 0
-        ? notasValidas.reduce((a, b) => a + b, 0) / notasValidas.length
-        : null;
+    // Sempre a média acumulada dos bimestres já lançados — nunca a nota de um
+    // bimestre isolado. avaliarDisciplina() é o mesmo serviço usado no
+    // dashboard/alertas, garante que "em risco" significa a mesma coisa em
+    // toda a tela.
+    const avaliacao = avaliarDisciplina(notasBim);
+    const media = avaliacao.media;
 
-    // Trend: delta between the last two bimestres that have data
     const idxComDados = notasBim
       .map((n, i) => (n !== null ? i : -1))
       .filter((i) => i >= 0);
@@ -143,7 +170,7 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
       tendencia = Number((ultimo - penultimo).toFixed(1));
     }
 
-    return { disc, notasBim, media, tendencia };
+    return { disc, notasBim, media, tendencia, emRisco: avaliacao.emRisco, emConselho: avaliacao.emConselho };
   });
 
   const mediasValidas = tabelaDisciplinas
@@ -157,103 +184,192 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
 
   const nivelGeral = mediaGeral !== null ? getNivel(mediaGeral) : null;
 
-  // Compute alert status from current bimestre grades (not legacy em_atencao)
-  const notasBimestreAtual = notasPorBimestre.find((g) => g.bimestre === bimestreAtual)?.notas ?? [];
-  const disciplinasAbaixo5 = disciplinasDaTurma.filter((disc) => {
-    const nota = notasBimestreAtual.find(
-      (n) => String(n.disciplina_id).trim() === String(disc.id).trim()
-    );
-    return nota?.nota !== null && nota?.nota !== undefined && Number(nota.nota) < 5;
-  }).length;
-
-  const alertaStatus =
-    disciplinasAbaixo5 >= 4 ? "critico" :
-    disciplinasAbaixo5 >= 2 ? "atencao" :
-    "ok";
+  // Disciplinas em risco = média acumulada < 5,0 (nunca a nota de um bimestre
+  // isolado) — mesmo critério e mesmo limiar (3+ = pré-reprovado) usados em
+  // buildRiscoAcademico(), pra não haver dois números diferentes pro mesmo aluno
+  // em telas diferentes.
+  const disciplinasAbaixo5 = tabelaDisciplinas.filter((d) => d.emRisco).length;
+  const alertaStatus = statusAlunoPorRisco(disciplinasAbaixo5);
 
   const totalBimestresComDados = bimestres.filter((b) =>
     notasPorBimestre.find((g) => g.bimestre === b)?.notas.length
   ).length;
 
+  const cardStyle: React.CSSProperties = {
+    background: "var(--bg-card)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-sm)",
+    boxShadow: "var(--shadow-card)",
+  };
+
   return (
-    <main className="min-h-screen bg-zinc-900 p-6 md:p-8">
+    <main className="min-h-screen p-6 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
 
         {/* Back button */}
         <Link
           href={`/dashboard?tab=heatmap${turmaIdParam ? `&turma=${turmaIdParam}` : ""}`}
-          className="inline-flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:border-zinc-600 hover:text-white"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition"
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--bg-card)",
+            color: "var(--text-secondary)",
+          }}
         >
           <ArrowLeft className="h-4 w-4" />
           Voltar ao dashboard
         </Link>
 
         {/* Header card */}
-        <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-
-          <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+        <div className="p-6 md:p-8" style={cardStyle}>
+          <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
+              <div
+                className="mb-3 inline-flex px-3 py-1 text-xs font-medium"
+                style={{
+                  background: "var(--bg-app)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-pill)",
+                  color: "var(--text-secondary)",
+                }}
+              >
                 Nº {String(aluno.numero_chamada).padStart(2, "0")} · {turma?.nome ?? "Turma não identificada"}
               </div>
-              <h1 className="text-3xl font-black tracking-tight md:text-4xl">
+              <h1
+                className="text-2xl tracking-tight md:text-3xl"
+                style={{ color: "var(--text-primary)", fontWeight: 600 }}
+              >
                 {aluno.nome}
               </h1>
-              <p className="mt-2 text-sm text-zinc-400">
-                Evolução pedagógica · {(escola?.ano_letivo as number | undefined) ?? 2026}
+              <p className="mt-2 text-sm" style={{ color: "var(--text-secondary)" }}>
+                Evolução pedagógica · {anoLetivo}
               </p>
             </div>
 
             {/* KPI chips */}
             <div className="flex flex-wrap gap-3">
               {mediaGeral !== null && (
-                <div className="rounded-2xl border border-zinc-700 bg-zinc-900/80 px-5 py-4 text-center">
-                  <span className={`text-4xl font-black ${mediaGeral >= 7 ? "text-green-300" : mediaGeral >= 5 ? "text-amber-300" : "text-red-300"}`}>
+                <div
+                  className="px-5 py-4 text-center"
+                  style={{
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--bg-app)",
+                  }}
+                >
+                  <span
+                    className="text-3xl"
+                    style={{ color: getNotaColor(mediaGeral), fontWeight: 600 }}
+                  >
                     {mediaGeral.toFixed(1)}
                   </span>
-                  <p className="text-xs font-semibold text-zinc-500">média geral</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    média geral
+                  </p>
                 </div>
               )}
 
               {nivelGeral && (
-                <div className={`rounded-2xl border px-5 py-4 text-center ${nivelGeral.cor}`}>
-                  <span className="text-sm font-black">{nivelGeral.label}</span>
-                  <p className="mt-1 text-xs font-semibold opacity-60">nível</p>
+                <div
+                  className="px-5 py-4 text-center"
+                  style={{
+                    border: "1px solid var(--border-subtle)",
+                    borderRadius: "var(--radius-sm)",
+                    background: nivelGeral.bg,
+                  }}
+                >
+                  <span className="text-sm font-semibold" style={{ color: nivelGeral.statusColor }}>
+                    {nivelGeral.label}
+                  </span>
+                  <p className="mt-1 text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    nível
+                  </p>
                 </div>
               )}
 
-              <div className={`rounded-2xl border px-5 py-4 text-center ${
-                disciplinasAbaixo5 === 0
-                  ? "border-green-500/30 bg-green-950/20 text-green-300"
-                  : disciplinasAbaixo5 < 4
-                  ? "border-amber-500/30 bg-amber-950/20 text-amber-300"
-                  : "border-red-500/30 bg-red-950/20 text-red-300"
-              }`}>
-                <span className="text-4xl font-black">{disciplinasAbaixo5}</span>
-                <p className="text-xs font-semibold opacity-60">{disciplinasAbaixo5 === 1 ? "disciplina" : "disciplinas"} em risco</p>
+              <div
+                className="px-5 py-4 text-center"
+                style={{
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-sm)",
+                  background:
+                    disciplinasAbaixo5 === 0
+                      ? "var(--status-success-tint)"
+                      : disciplinasAbaixo5 < 3
+                      ? "var(--status-warning-tint)"
+                      : "var(--status-danger-tint)",
+                }}
+              >
+                <span
+                  className="text-3xl"
+                  style={{
+                    color:
+                      disciplinasAbaixo5 === 0
+                        ? "var(--status-success-bg)"
+                        : disciplinasAbaixo5 < 3
+                        ? "#E8860C"
+                        : "var(--status-danger-bg)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {disciplinasAbaixo5}
+                </span>
+                <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                  {disciplinasAbaixo5 === 1 ? "disciplina" : "disciplinas"} em risco
+                </p>
+                <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)", opacity: 0.7 }}>
+                  pela média acumulada · 3+ é Pré-Reprovado
+                </p>
               </div>
 
-              <div className={`flex items-center gap-2.5 rounded-2xl border px-5 py-4 ${
-                alertaStatus === "critico"
-                  ? "border-red-500/30 bg-red-950/20 text-red-300"
-                  : alertaStatus === "atencao"
-                  ? "border-amber-500/30 bg-amber-950/20 text-amber-300"
-                  : "border-green-500/30 bg-green-950/20 text-green-300"
-              }`}>
+              <div
+                className="flex items-center gap-2.5 px-5 py-4"
+                style={{
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-sm)",
+                  background:
+                    alertaStatus === "critico"
+                      ? "var(--status-danger-tint)"
+                      : alertaStatus === "atencao"
+                      ? "var(--status-warning-tint)"
+                      : "var(--status-success-tint)",
+                }}
+              >
                 {alertaStatus === "critico" ? (
-                  <AlertTriangle className="h-5 w-5" />
+                  <AlertTriangle
+                    className="h-5 w-5"
+                    style={{ color: "var(--status-danger-bg)" }}
+                  />
                 ) : alertaStatus === "atencao" ? (
-                  <AlertTriangle className="h-5 w-5" />
+                  <AlertTriangle className="h-5 w-5" style={{ color: "#E8860C" }} />
                 ) : (
-                  <CheckCircle className="h-5 w-5" />
+                  <CheckCircle
+                    className="h-5 w-5"
+                    style={{ color: "var(--status-success-bg)" }}
+                  />
                 )}
                 <div>
-                  <p className="text-sm font-black">
-                    {alertaStatus === "critico" ? "Crítico" : alertaStatus === "atencao" ? "Atenção" : "Regular"}
+                  <p
+                    className="text-sm font-semibold"
+                    style={{
+                      color:
+                        alertaStatus === "critico"
+                          ? "var(--status-danger-bg)"
+                          : alertaStatus === "atencao"
+                          ? "#E8860C"
+                          : "var(--status-success-bg)",
+                    }}
+                  >
+                    {alertaStatus === "critico"
+                      ? "Pré-Reprovado"
+                      : alertaStatus === "atencao"
+                      ? "Atenção"
+                      : "Regular"}
                   </p>
-                  <p className="text-xs font-semibold opacity-60">{bimestreAtual}º bimestre</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    acompanhando o {bimestreAtual}º bimestre
+                  </p>
                 </div>
               </div>
             </div>
@@ -261,44 +377,83 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
         </div>
 
         {/* Grades table */}
-        <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_35%)]" />
-
-          <div className="relative z-10 mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="p-6 md:p-8" style={cardStyle}>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-xl font-black tracking-tight">Notas por Disciplina</h2>
-              <p className="mt-1 text-sm text-zinc-400">
-                {turma?.nome} · {totalBimestresComDados} {totalBimestresComDados === 1 ? "bimestre" : "bimestres"} com dados
+              <h2 className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
+                Notas por Disciplina
+              </h2>
+              <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+                {turma?.nome} · {totalBimestresComDados}{" "}
+                {totalBimestresComDados === 1 ? "bimestre" : "bimestres"} com dados
               </p>
             </div>
           </div>
 
-          <div className="relative z-10 overflow-x-auto rounded-2xl border border-zinc-800 bg-black/20">
+          <div
+            className="overflow-x-auto"
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-10 min-w-[200px] border border-zinc-800 bg-zinc-950 p-3 text-left text-zinc-200">
+                  <th
+                    className="sticky left-0 z-10 min-w-[200px] p-3 text-left"
+                    style={{
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-app)",
+                      color: "var(--text-primary)",
+                      fontWeight: 600,
+                    }}
+                  >
                     Disciplina
                   </th>
                   {bimestres.map((b) => (
                     <th
                       key={b}
-                      className={`min-w-[80px] border border-zinc-800 p-3 text-center font-bold ${
-                        b === bimestreAtual
-                          ? "bg-indigo-950/40 text-indigo-200"
-                          : "bg-zinc-950 text-zinc-400"
-                      }`}
+                      className="min-w-[80px] p-3 text-center"
+                      style={{
+                        border: "1px solid var(--border-subtle)",
+                        background:
+                          b === bimestreAtual ? "var(--bg-sidebar-active)" : "var(--bg-app)",
+                        color:
+                          b === bimestreAtual
+                            ? "var(--brand-primary)"
+                            : "var(--text-secondary)",
+                        fontWeight: b === bimestreAtual ? 600 : 400,
+                      }}
                     >
                       {b}º Bim
-                      {b === bimestreAtual && (
-                        <span className="ml-1 text-[9px] font-normal text-indigo-400/70">(atual)</span>
-                      )}
                     </th>
                   ))}
-                  <th className="min-w-[80px] border border-zinc-800 bg-zinc-950 p-3 text-center text-zinc-200">
-                    Média
+                  <th
+                    className="min-w-[100px] p-3 text-center"
+                    style={{
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-app)",
+                      color: "var(--text-primary)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span className="inline-flex items-center justify-center gap-1">
+                      Média Atual
+                      <InfoTooltip
+                        align="end"
+                        texto="Média acumulada de todos os bimestres já lançados dessa disciplina — nunca a nota de um bimestre isolado. É essa média que define se a disciplina está em risco (abaixo de 5,0)."
+                      />
+                    </span>
                   </th>
-                  <th className="min-w-[90px] border border-zinc-800 bg-zinc-950 p-3 text-center text-zinc-400">
+                  <th
+                    className="min-w-[90px] p-3 text-center"
+                    style={{
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--bg-app)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
                     Tendência
                   </th>
                 </tr>
@@ -306,40 +461,103 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
 
               <tbody>
                 {tabelaDisciplinas.map(({ disc, notasBim, media, tendencia }) => (
-                  <tr key={disc.id} className="group hover:bg-zinc-900/50">
-                    <td className="sticky left-0 z-10 border border-zinc-800 bg-zinc-950 p-3 font-semibold text-zinc-100 group-hover:bg-zinc-900">
-                      <span className="mr-2 inline-flex h-5 w-7 items-center justify-center rounded bg-zinc-800 text-[10px] font-black text-zinc-500">
+                  <tr key={disc.id} className="group">
+                    <td
+                      className="sticky left-0 z-10 p-3 font-medium"
+                      style={{
+                        border: "1px solid var(--border-subtle)",
+                        background: "var(--bg-card)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <span
+                        className="mr-2 inline-flex h-5 w-7 items-center justify-center text-[10px] font-semibold"
+                        style={{
+                          background: "var(--bg-app)",
+                          borderRadius: "var(--radius-sm)",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
                         {disc.codigo.replace("C", "")}
                       </span>
                       {disc.nome}
                     </td>
                     {notasBim.map((nota, idx) => (
-                      <td key={idx} className={`border border-zinc-800 p-2 text-center ${bimestres[idx] === bimestreAtual ? "bg-indigo-950/10" : ""}`}>
-                        <div className={`rounded-xl px-2 py-1.5 font-black ring-1 ${getClasseNota(nota, bimestres[idx] === bimestreAtual)}`}>
+                      <td
+                        key={idx}
+                        className="p-2 text-center"
+                        style={{
+                          border: "1px solid var(--border-subtle)",
+                          background:
+                            bimestres[idx] === bimestreAtual ? "var(--bg-sidebar-active)" : "var(--bg-card)",
+                        }}
+                      >
+                        <div
+                          className="px-2 py-1.5 font-semibold"
+                          style={{
+                            borderRadius: "var(--radius-sm)",
+                            background: getNotaBg(nota),
+                            color: getNotaColor(nota),
+                          }}
+                        >
                           {nota !== null ? nota : "–"}
                         </div>
                       </td>
                     ))}
-                    <td className="border border-zinc-800 p-2 text-center">
-                      <div className={`rounded-xl px-2 py-1.5 text-base font-black ring-1 ${getClasseNota(media)}`}>
+                    <td
+                      className="p-2 text-center"
+                      style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}
+                    >
+                      <div
+                        className="px-2 py-1.5 text-base font-semibold"
+                        style={{
+                          borderRadius: "var(--radius-sm)",
+                          background: getNotaBg(media),
+                          color: getNotaColor(media),
+                        }}
+                      >
                         {media !== null ? media.toFixed(1) : "–"}
                       </div>
                     </td>
-                    <td className="border border-zinc-800 p-2 text-center">
+                    <td
+                      className="p-2 text-center"
+                      style={{ border: "1px solid var(--border-subtle)", background: "var(--bg-card)" }}
+                    >
                       {tendencia === null ? (
-                        <span className="text-zinc-600">–</span>
+                        <span style={{ color: "var(--text-secondary)" }}>–</span>
                       ) : tendencia > 0 ? (
-                        <div className="inline-flex items-center gap-1 rounded-xl bg-green-500/10 px-2 py-1 text-xs font-black text-green-300 ring-1 ring-green-500/20">
+                        <div
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold"
+                          style={{
+                            background: "var(--status-success-tint)",
+                            borderRadius: "var(--radius-pill)",
+                            color: "var(--status-success-bg)",
+                          }}
+                        >
                           <TrendingUp className="h-3 w-3" />
                           +{tendencia}
                         </div>
                       ) : tendencia < 0 ? (
-                        <div className="inline-flex items-center gap-1 rounded-xl bg-red-500/10 px-2 py-1 text-xs font-black text-red-300 ring-1 ring-red-500/20">
+                        <div
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold"
+                          style={{
+                            background: "var(--status-danger-tint)",
+                            borderRadius: "var(--radius-pill)",
+                            color: "var(--status-danger-bg)",
+                          }}
+                        >
                           <TrendingDown className="h-3 w-3" />
                           {tendencia}
                         </div>
                       ) : (
-                        <div className="inline-flex items-center gap-1 rounded-xl bg-zinc-800 px-2 py-1 text-xs font-black text-zinc-400 ring-1 ring-zinc-700">
+                        <div
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold"
+                          style={{
+                            background: "var(--bg-app)",
+                            borderRadius: "var(--radius-pill)",
+                            color: "var(--text-secondary)",
+                          }}
+                        >
                           <Minus className="h-3 w-3" />
                           0
                         </div>
@@ -352,24 +570,43 @@ export default async function AlunoPage({ params, searchParams }: PageProps) {
           </div>
 
           {/* Legend */}
-          <div className="relative z-10 mt-6 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap gap-2">
             {[
-              { cor: "bg-red-500",   texto: "0–4  · Abaixo do Básico" },
-              { cor: "bg-amber-500", texto: "5–6  · Básico" },
-              { cor: "bg-green-500", texto: "7–8  · Adequado" },
-              { cor: "bg-blue-500",  texto: "9–10 · Avançado" },
-            ].map(({ cor, texto }) => (
+              { color: "var(--status-danger-bg)", bg: "var(--status-danger-tint)", texto: "0–4 · Abaixo do Básico" },
+              { color: "#E8860C", bg: "var(--status-warning-tint)", texto: "5–6 · Básico" },
+              { color: "var(--status-success-bg)", bg: "var(--status-success-tint)", texto: "7–8 · Adequado" },
+              { color: "var(--brand-primary)", bg: "var(--bg-sidebar-active)", texto: "8–10 · Avançado" },
+            ].map(({ color, texto }) => (
               <div
                 key={texto}
-                className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-2"
+                className="flex items-center gap-2 px-3 py-1.5"
+                style={{
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-pill)",
+                  background: "var(--bg-card)",
+                }}
               >
-                <div className={`h-3 w-3 rounded-full ${cor}`} />
-                <span className="text-xs font-bold text-zinc-300">{texto}</span>
+                <div
+                  className="h-3 w-3 rounded-full"
+                  style={{ background: color }}
+                />
+                <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                  {texto}
+                </span>
               </div>
             ))}
-            <div className="flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900/70 px-4 py-2">
-              <TrendingUp className="h-3 w-3 text-green-400" />
-              <span className="text-xs font-bold text-zinc-300">Tendência: variação entre os dois últimos bimestres com nota</span>
+            <div
+              className="flex items-center gap-2 px-3 py-1.5"
+              style={{
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-pill)",
+                background: "var(--bg-card)",
+              }}
+            >
+              <TrendingUp className="h-3 w-3" style={{ color: "var(--status-success-bg)" }} />
+              <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                Tendência: variação entre os dois últimos bimestres com nota
+              </span>
             </div>
           </div>
         </div>

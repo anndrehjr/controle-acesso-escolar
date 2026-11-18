@@ -1,12 +1,15 @@
 "use client";
 
-import { School } from "lucide-react";
+import { School, LogOut, BarChart2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import BimestreSeletor from "./BimestreSeletor";
 import TurmaSeletor from "./TurmaSeletor";
 
 type Turma = { id: string; nome: string };
 
 type Props = {
+  escolaId: string;
   nome: string;
   cidade: string;
   estado: string;
@@ -17,6 +20,7 @@ type Props = {
 };
 
 export default function HeaderEscola({
+  escolaId,
   nome,
   cidade,
   estado,
@@ -25,37 +29,84 @@ export default function HeaderEscola({
   turmas,
   turmaAtualId,
 }: Props) {
-  return (
-    <header className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/80 p-6 text-white shadow-2xl backdrop-blur md:p-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_35%)]" />
-      <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-zinc-700/20 blur-3xl" />
-      <div className="absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-zinc-800/20 blur-3xl" />
+  const router = useRouter();
 
-      <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
+
+  return (
+    <header
+      className="p-6 md:p-8"
+      style={{
+        background: "var(--bg-card)",
+        border: "1px solid var(--border-subtle)",
+        borderRadius: "var(--radius-sm)",
+        boxShadow: "var(--shadow-card)",
+      }}
+    >
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-start gap-5">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-zinc-700 bg-zinc-900 shadow-xl md:h-20 md:w-20">
-            <School className="h-8 w-8 text-white md:h-10 md:w-10" />
+          <div
+            className="flex h-14 w-14 shrink-0 items-center justify-center"
+            style={{
+              background: "var(--bg-app)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <School className="h-7 w-7" style={{ color: "var(--brand-primary)" }} />
           </div>
 
           <div>
-            <div className="mb-3 inline-flex rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-400">
+            <div
+              className="mb-3 inline-flex px-3 py-1 text-xs font-medium"
+              style={{
+                background: "var(--bg-app)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-pill)",
+                color: "var(--text-secondary)",
+              }}
+            >
               Painel pedagógico
             </div>
 
-            <h1 className="text-3xl font-black tracking-tight text-white md:text-5xl">
+            <h1
+              className="text-2xl tracking-tight md:text-3xl"
+              style={{
+                color: "var(--text-primary)",
+                fontWeight: "var(--font-weight-semibold)",
+              }}
+            >
               {nome}
             </h1>
 
-            <p className="mt-2 text-sm text-zinc-400 md:text-lg">
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
               {cidade} - {estado}
             </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-zinc-700 bg-zinc-900 px-4 py-1.5 text-sm font-semibold text-zinc-300">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className="px-3 py-1 text-xs font-medium"
+                style={{
+                  background: "var(--bg-app)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-pill)",
+                  color: "var(--text-secondary)",
+                }}
+              >
                 Ano letivo {anoLetivo}
               </span>
               {turmaAtualId && (
-                <span className="rounded-full border border-blue-700/60 bg-blue-950/40 px-4 py-1.5 text-sm font-semibold text-blue-300">
+                <span
+                  className="px-3 py-1 text-xs font-semibold"
+                  style={{
+                    background: "var(--bg-sidebar-active)",
+                    borderRadius: "var(--radius-pill)",
+                    color: "var(--brand-primary)",
+                  }}
+                >
                   Turma selecionada
                 </span>
               )}
@@ -64,9 +115,31 @@ export default function HeaderEscola({
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          <TurmaSeletor turmas={turmas} turmaAtualId={turmaAtualId} />
-          <div className="h-6 w-px bg-zinc-700 hidden sm:block" />
+          <Link href={`/analytics?escolaId=${encodeURIComponent(escolaId)}`} className="flex items-center gap-2 px-3 py-2 text-sm font-medium" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)" }}><BarChart2 className="h-4 w-4" />Visao Geral</Link><div className="h-6 w-px hidden sm:block" style={{ background: "var(--border-subtle)" }} /><TurmaSeletor turmas={turmas} turmaAtualId={turmaAtualId} />
+          <div
+            className="h-6 w-px hidden sm:block"
+            style={{ background: "var(--border-subtle)" }}
+          />
           <BimestreSeletor bimestreAtual={bimestre} />
+          <div
+            className="h-6 w-px hidden sm:block"
+            style={{ background: "var(--border-subtle)" }}
+          />
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors"
+            style={{
+              background: "var(--bg-app)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+            title="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </button>
         </div>
       </div>
     </header>

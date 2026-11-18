@@ -26,7 +26,7 @@ export const PEDAGOGICAL_LEVELS: Record<
   critical: { min: 1, max: 4, label: "Abaixo do Básico", color: "#ef4444", bgClass: "bg-critical", textClass: "text-critical" },
   basic: { min: 5, max: 6, label: "Básico", color: "#eab308", bgClass: "bg-warning", textClass: "text-warning" },
   adequate: { min: 7, max: 8, label: "Adequado", color: "#22c55e", bgClass: "bg-success", textClass: "text-success" },
-  advanced: { min: 9, max: 10, label: "Avançado", color: "#3b82f6", bgClass: "bg-advanced", textClass: "text-advanced" },
+  advanced: { min: 8, max: 10, label: "Avançado", color: "#3b82f6", bgClass: "bg-advanced", textClass: "text-advanced" },
 };
 
 export function getPedagogicalLevel(grade: number): PedagogicalLevel {

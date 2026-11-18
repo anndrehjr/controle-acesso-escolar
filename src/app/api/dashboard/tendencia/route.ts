@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildSchoolDashboard } from "../../../../lib/analytics/buildSchoolDashboard";
-import { buildAlertas } from "../../../../lib/analytics/buildAlertas";
+import { buildRiscoAcademico } from "../../../../lib/analytics/buildRiscoAcademico";
 import { cache } from "../../../../lib/cache";
-import { resolveEscolaAccess, podeVerTurma } from "../../../../lib/permissions";
+import { resolveEscolaAccess, turmasVisiveis } from "../../../../lib/permissions";
 import type {
   Aluno,
   Disciplina,
@@ -21,38 +21,32 @@ export async function GET(request: Request) {
 
     const perfil = await checkApiAuth(request);
     if (!perfil) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
     }
 
     const escolaId = resolveEscolaAccess(perfil, escolaIdParam);
     if (!escolaId) {
-      return NextResponse.json({ error: "Sem permissão" }, { status: 403 });
+      return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
     }
 
-    if (turmaId && !(await podeVerTurma(perfil, escolaId, turmaId))) {
-      return NextResponse.json({ error: "Sem permissão para esta turma" }, { status: 403 });
+    const turmasPermitidas = await turmasVisiveis(perfil, escolaId);
+    if (turmaId && !turmasPermitidas.includes(turmaId)) {
+      return NextResponse.json({ error: "Sem permissao para esta turma" }, { status: 403 });
     }
-
-    const turmasKey = turmaId ? `turmas:${escolaId}:${turmaId}` : `turmas:${escolaId}`;
-    const alunosKey = turmaId ? `alunos:${escolaId}:turma:${turmaId}` : `alunos:${escolaId}`;
-    const notasKey = turmaId ? `notas:${escolaId}:turma:${turmaId}` : `notas:${escolaId}`;
+    const idsTurmasEscopo = turmaId ? [turmaId] : turmasPermitidas;
 
     const escolaRows = await db`SELECT ano_letivo FROM escolas WHERE id = ${escolaId} LIMIT 1`;
     const anoLetivo = (escolaRows[0]?.ano_letivo as number | undefined) ?? new Date().getFullYear();
+    const escopoKey = turmaId ? `turma:${turmaId}` : `usuario:${perfil.id}`;
 
-    const turmaData = turmaId
-      ? await cache.getOrSet(`turma:${turmaId}`, async () => {
-          const rows = await db`SELECT id, nome FROM turmas WHERE id = ${turmaId} LIMIT 1`;
-          return (rows[0] ?? null) as { id: string; nome: string } | null;
-        })
-      : null;
-
-    const [alunos, disciplinas, matriz] = await Promise.all([
-      cache.getOrSet(alunosKey, async () => {
-        const rows = turmaId
-          // escola_id always required for security
-          ? await db`SELECT * FROM alunos WHERE escola_id = ${escolaId} AND turma_id = ${turmaId} AND ativo = true`
-          : await db`SELECT * FROM alunos WHERE escola_id = ${escolaId} AND ativo = true`;
+    const [alunos, disciplinas, matriz, turmas, todasNotas] = await Promise.all([
+      cache.getOrSet(`tendencia:alunos:${escolaId}:${escopoKey}`, async () => {
+        const rows = await db`
+          SELECT * FROM alunos
+          WHERE escola_id = ${escolaId}
+            AND ativo = true
+            AND turma_id = ANY(${idsTurmasEscopo}::uuid[])
+        `;
         return rows as unknown as Aluno[];
       }),
       cache.getOrSet(`disciplinas:${escolaId}`, async () => {
@@ -63,34 +57,38 @@ export async function GET(request: Request) {
         const rows = await db`SELECT * FROM matriz_disciplinas WHERE escola_id = ${escolaId}`;
         return rows as unknown as MatrizDisciplina[];
       }),
+      cache.getOrSet(`tendencia:turmas:${escolaId}:${escopoKey}`, async () => {
+        const rows = await db`
+          SELECT * FROM turmas
+          WHERE escola_id = ${escolaId} AND id = ANY(${idsTurmasEscopo}::uuid[])
+        `;
+        return rows as unknown as Turma[];
+      }),
+      cache.getOrSet(`tendencia:notas:${escolaId}:${escopoKey}:ano:${anoLetivo}`, async () => {
+        const rows = await db`
+          SELECT * FROM notas
+          WHERE escola_id = ${escolaId}
+            AND ano_letivo = ${anoLetivo}
+            AND turma_id = ANY(${idsTurmasEscopo}::uuid[])
+        `;
+        return rows as unknown as Nota[];
+      }),
     ]);
 
-    const turmas = await cache.getOrSet(turmasKey, async () => {
-      const rows = turmaId
-        ? await db`SELECT * FROM turmas WHERE escola_id = ${escolaId} AND id = ${turmaId}`
-        : await db`SELECT * FROM turmas WHERE escola_id = ${escolaId}`;
-      return rows as unknown as Turma[];
-    });
-
-    const todasNotas = await cache.getOrSet(notasKey, async () => {
-      const rows = turmaId
-        ? await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND turma_id = ${turmaId}`
-        : await db`SELECT * FROM notas WHERE escola_id = ${escolaId}`;
-      return rows as unknown as Nota[];
-    });
+    const turmaData = turmaId
+      ? turmas.find((turma) => turma.id === turmaId) ?? null
+      : null;
 
     const labels: Record<number, string> = {
-      1: "1º Bim",
-      2: "2º Bim",
-      3: "3º Bim",
-      4: "4º Bim",
+      1: "1o Bim",
+      2: "2o Bim",
+      3: "3o Bim",
+      4: "4o Bim",
     };
 
     const pontos = [1, 2, 3, 4].map((bimestre) => {
-      // Filter notes to this bimestre for both dashboard and alertas
-      const notasBim = todasNotas.filter(
-        (n) => Number(n.bimestre) === bimestre && Number(n.ano_letivo) === anoLetivo
-      );
+      const notasBim = todasNotas.filter((n) => Number(n.bimestre) === bimestre);
+      const notasAte = todasNotas.filter((n) => Number(n.bimestre) <= bimestre);
 
       const dashboard = buildSchoolDashboard({
         alunos,
@@ -102,9 +100,13 @@ export async function GET(request: Request) {
       });
 
       const temDados = dashboard.notasValidas.length > 0;
-
-      // Same rule as SSR: 4+ disciplines < 5 = crítico
-      const alertas = buildAlertas({ alunos, notas: notasBim, turmas, disciplinas, matriz });
+      const alertas = buildRiscoAcademico({
+        alunos,
+        notas: notasAte,
+        turmas,
+        disciplinas,
+        matriz,
+      });
 
       return {
         bimestre,
@@ -121,7 +123,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({
-      turma: turmaData ?? null,
+      turma: turmaData,
       pontos,
     });
   } catch (err) {

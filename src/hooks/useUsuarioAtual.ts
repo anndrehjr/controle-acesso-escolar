@@ -12,11 +12,14 @@ type UsuarioAtual = {
   email: string;
   role: Role;
   escola_id: string | null;
+  is_dev_master: boolean;
+  pode_ajustar_notas: boolean;
 };
 
 export function useUsuarioAtual() {
   const [usuario, setUsuario] = useState<UsuarioAtual | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erroSessao, setErroSessao] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -26,9 +29,10 @@ export function useUsuarioAtual() {
     let cancelado = false;
 
     async function carregarUsuario() {
-      const usuarioAtual = await getCurrentUser();
+      const resultado = await getCurrentUser();
       if (!cancelado) {
-        setUsuario(usuarioAtual as UsuarioAtual | null);
+        setUsuario(resultado.usuario as UsuarioAtual | null);
+        setErroSessao(resultado.status === "erro_temporario");
         setLoading(false);
       }
     }
@@ -45,10 +49,13 @@ export function useUsuarioAtual() {
   return {
     usuario,
     loading,
+    erroSessao,
     isSuperAdmin: usuario?.role === "SUPER_ADMIN",
     isAdminEscola: usuario?.role === "ADMIN_ESCOLA",
     isProfessor: usuario?.role === "PROFESSOR",
     isLeitor: usuario?.role === "LEITOR",
+    isDevMaster: usuario?.role === "DEV_MASTER" && usuario.is_dev_master === true,
+    podeAjustarNotas: usuario?.pode_ajustar_notas === true,
     capacidades,
   };
 }

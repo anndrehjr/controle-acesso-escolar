@@ -1,18 +1,14 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 
 function ProgressBarInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [active, setActive] = useState(false);
-
-  const stop = useCallback(() => setActive(false), []);
-
-  useEffect(() => {
-    stop();
-  }, [pathname, searchParams, stop]);
+  const routeKey = pathname + "?" + searchParams.toString();
+  const [navegacao, setNavegacao] = useState({ ativa: false, origem: routeKey });
+  const active = navegacao.ativa && navegacao.origem === routeKey;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -20,31 +16,24 @@ function ProgressBarInner() {
       if (!anchor) return;
       const href = anchor.getAttribute("href");
       if (!href || href.startsWith("http") || href.startsWith("#") || href.startsWith("mailto:")) return;
-      setActive(true);
+      setNavegacao({ ativa: true, origem: routeKey });
     }
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
-  }, []);
+  }, [routeKey]);
 
   if (!active) return null;
 
   return (
-    <div
-      aria-hidden
-      className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px] overflow-hidden bg-zinc-800"
-    >
-      <div
-        className="h-full w-full bg-gradient-to-r from-transparent via-white to-transparent"
-        style={{ animation: "nav-shimmer 1.4s ease-in-out infinite" }}
-      />
+    <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-[3px] overflow-hidden" style={{ background: "var(--border-subtle)" }}>
+      <div className="h-full w-full" style={{
+        background: "linear-gradient(90deg, transparent, var(--brand-primary), transparent)",
+        animation: "nav-shimmer 1.4s ease-in-out infinite",
+      }} />
     </div>
   );
 }
 
 export function NavigationProgressBar() {
-  return (
-    <Suspense>
-      <ProgressBarInner />
-    </Suspense>
-  );
+  return <Suspense><ProgressBarInner /></Suspense>;
 }

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavigationProgressBar } from "../components/NavigationProgressBar";
 import { TopBar } from "../components/TopBar";
+import { MotionPage } from "../components/MotionPage";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        {/* Anti-flash: aplica o tema salvo antes do primeiro paint */}
+        {/* Anti-flash: aplica o tema salvo antes do primeiro paint (padrão: escuro) */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
@@ -40,7 +41,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NavigationProgressBar />
         <TopBar />
-        {children}
+        <MotionPage>{children}</MotionPage>
       </body>
     </html>
   );

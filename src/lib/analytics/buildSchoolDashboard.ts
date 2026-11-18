@@ -3,7 +3,7 @@ import type { Aluno, Disciplina, Nota, Turma } from "./types";
 function getNivel(media: number) {
   if (media < 5) return "critico";
   if (media < 7) return "basico";
-  if (media < 9) return "adequado";
+  if (media < 8) return "adequado";
   return "avancado";
 }
 

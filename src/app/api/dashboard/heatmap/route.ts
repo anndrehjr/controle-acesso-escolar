@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { checkApiAuth } from "../../../../lib/auth";
 import db from "../../../../lib/db";
 import { buildHeatmapPedagogico } from "../../../../lib/analytics/buildHeatmapPedagogico";
+import { buildRiscoAcademico } from "../../../../lib/analytics/buildRiscoAcademico";
 import { cache } from "../../../../lib/cache";
 import { resolveEscolaAccess, turmasVisiveis, podeVerTurma } from "../../../../lib/permissions";
 import { capabilitiesFor } from "../../../../types/roles";
@@ -42,6 +43,14 @@ export async function GET(request: Request) {
     const turmasKey = turmaId ? `turmas:${escolaId}:${turmaId}` : `turmas:${escolaId}`;
     const alunosKey = turmaId ? `alunos:${escolaId}:turma:${turmaId}` : `alunos:${escolaId}`;
 
+    const escolaRows = await db`SELECT * FROM escolas WHERE id = ${escolaId} LIMIT 1`;
+    const escola = escolaRows[0];
+    if (!escola) {
+      return NextResponse.json({ error: "Escola não encontrada" }, { status: 404 });
+    }
+    const bimestreAtual = (escola.bimestre_atual as number | undefined) ?? 1;
+    const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
+
     const [turmasBrutas, alunosBrutos, disciplinas, matriz] = await Promise.all([
       cache.getOrSet(turmasKey, async () => {
         const rows = turmaId
@@ -65,12 +74,19 @@ export async function GET(request: Request) {
       }),
     ]);
 
-    const todasNotas = await cache.getOrSet(
-      `notas:${escolaId}:bim:${bimestre}`,
-      async () => {
-        const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND bimestre = ${bimestre}`;
-        return rows as unknown as Nota[];
-      }
+    const todasNotas = await cache.getOrSet(`notas:${escolaId}`, async () => {
+      const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId}`;
+      return rows as unknown as Nota[];
+    });
+
+    const notasBimestreSelecionado = todasNotas.filter(
+      (n) => Number(n.bimestre) === bimestre && Number(n.ano_letivo) === anoLetivo
+    );
+    // Todos os bimestres já lançados até o bimestre atual da escola — mesmo recorte
+    // usado em /api/dashboard/kpis, pra classificar quem está Pré-Reprovado de forma
+    // consistente em todo o sistema, independente do bimestre em exibição no heatmap.
+    const notasAcumuladas = todasNotas.filter(
+      (n) => Number(n.bimestre) <= bimestreAtual && Number(n.ano_letivo) === anoLetivo
     );
 
     const turmas = turmasPermitidas ? turmasBrutas.filter((t) => turmasPermitidas.includes(t.id)) : turmasBrutas;
@@ -78,8 +94,11 @@ export async function GET(request: Request) {
       ? alunosBrutos.filter((a) => turmasPermitidas.includes(a.turma_id as string))
       : alunosBrutos;
     const notas = turmasPermitidas
-      ? todasNotas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
-      : todasNotas;
+      ? notasBimestreSelecionado.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+      : notasBimestreSelecionado;
+    const notasAno = turmasPermitidas
+      ? notasAcumuladas.filter((n) => turmasPermitidas.includes(n.turma_id as string))
+      : notasAcumuladas;
 
     const heatmap = buildHeatmapPedagogico({
       alunos,
@@ -89,7 +108,21 @@ export async function GET(request: Request) {
       matriz,
     });
 
-    return NextResponse.json({ data: heatmap });
+    // Classificação Pré-Reprovado (3+ disciplinas em risco pela média acumulada do ano) —
+    // mesma regra central usada no dashboard/alertas/perfil do aluno, independente do
+    // bimestre selecionado aqui no heatmap.
+    const risco = buildRiscoAcademico({ alunos, notas: notasAno, turmas, disciplinas, matriz });
+    const preReprovados = new Set(risco.criticos.map((c) => c.alunoId));
+
+    const heatmapComStatus = heatmap.map((turmaLinha) => ({
+      ...turmaLinha,
+      alunos: turmaLinha.alunos.map((linha) => ({
+        ...linha,
+        preReprovado: preReprovados.has(linha.alunoId),
+      })),
+    }));
+
+    return NextResponse.json({ data: heatmapComStatus });
   } catch (err) {
     console.error("[heatmap]", err);
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });

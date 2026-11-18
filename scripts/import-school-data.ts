@@ -1,422 +1,206 @@
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import dotenv from "dotenv";
+import postgres from "postgres";
+import { ALL_CLASSROOMS } from "../src/lib/school-data";
+import { ALL_CLASSROOMS_B2 } from "../src/lib/school-data-b2";
+import {
+  expectedConfirmation, getPedagogicalGroup, getSchoolYear, normalizeText,
+  parseImportOptions, validateDataset, type ImportClassRoom, type ImportOptions,
+  type ValidatedDataset,
+} from "./import-school-data-lib";
+
 dotenv.config({ path: ".env.local" });
 
-import { createClient } from "@supabase/supabase-js";
-
-// ╔══════════════════════════════════════════════════════╗
-// ║  CONFIGURAÇÃO — altere aqui antes de cada importação ║
-// ╠══════════════════════════════════════════════════════╣
-// ║  BIMESTRE 1 → import { ALL_CLASSROOMS }              ║
-// ║              from "../src/lib/school-data"           ║
-// ║  BIMESTRE 2 → import { ALL_CLASSROOMS_B2 as ALL_CLASSROOMS } ║
-// ║              from "../src/lib/school-data-b2"        ║
-// ╚══════════════════════════════════════════════════════╝
-
-//import { ALL_CLASSROOMS } from "../src/lib/school-data";
- import { ALL_CLASSROOMS_B2 as ALL_CLASSROOMS } from "../src/lib/school-data-b2";
-
-const ESCOLA_ID = "6b50af3f-8023-497f-bccb-32ceec3d0252";
-const ANO_LETIVO = 2026;
-const BIMESTRE = 2;
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-);
-
-type NotaInsert = {
-  escola_id: string;
-  turma_id: string;
-  aluno_id: string;
-  disciplina_id: string;
-  ano_letivo: number;
-  bimestre: number;
-  nota: number;
-  status: string;
+type DbClass = { id: string; nome: string; etapa: "EF" | "EM"; ano_serie: number; periodo: string; total_ativos: number; grupo_pedagogico: string; ativo: boolean };
+type DbStudent = { id: string; turma_id: string; numero_chamada: number; nome: string; status: string; em_atencao: boolean; ativo: boolean };
+type DbDiscipline = { id: string; codigo: string; nome: string };
+type DbMatrix = { etapa: string; codigo: string; disciplina_id: string; disciplina_nome: string; ativo: boolean };
+type DbGrade = { aluno_id: string; disciplina_id: string; nota: string | number; status: string; turma_id: string };
+type Snapshot = { schoolName: string; classes: DbClass[]; students: DbStudent[]; disciplines: DbDiscipline[]; matrix: DbMatrix[]; grades: DbGrade[] };
+type Counters = { create: number; update: number; unchanged: number };
+type Plan = { classes: Counters; students: Counters; disciplines: { create: number; reuse: number }; matrix: Counters; grades: Counters; deletes: 0 };
+type Report = {
+  batchId: string; mode: "dry-run" | "apply"; generatedAt: string;
+  school: { id: string; name: string }; source: string; year: number; term: number;
+  zeroPolicy: string; sourceSummary: ValidatedDataset["summary"]; warnings: string[];
+  plan: Plan; backupReference?: string; operator?: string;
 };
 
-function normalizarTexto(texto: string) {
-  return texto
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+const pickSource = (source: ImportOptions["source"]): ImportClassRoom[] => source === "b1" ? ALL_CLASSROOMS : ALL_CLASSROOMS_B2;
+const sameText = (a: string, b: string) => normalizeText(a) === normalizeText(b);
+const newCode = (name: string) => `IMP_${normalizeText(name).toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")}`.slice(0, 32);
+
+async function loadSnapshot(sql: ReturnType<typeof postgres>, options: ImportOptions): Promise<Snapshot> {
+  const schools = await sql<{ id: string; nome: string }[]>`SELECT id, nome FROM public.escolas WHERE id=${options.schoolId} LIMIT 1`;
+  if (schools.length !== 1) throw new Error(`Escola não encontrada: ${options.schoolId}`);
+  const [classes, students, disciplines, matrix, grades] = await Promise.all([
+    sql<DbClass[]>`SELECT id,nome,etapa,ano_serie,periodo,total_ativos,grupo_pedagogico,ativo FROM public.turmas WHERE escola_id=${options.schoolId}`,
+    sql<DbStudent[]>`SELECT id,turma_id,numero_chamada,nome,status,em_atencao,ativo FROM public.alunos WHERE escola_id=${options.schoolId}`,
+    sql<DbDiscipline[]>`SELECT id,codigo,nome FROM public.disciplinas WHERE escola_id=${options.schoolId}`,
+    sql<DbMatrix[]>`SELECT md.etapa,md.codigo,md.disciplina_id,d.nome AS disciplina_nome,md.ativo FROM public.matriz_disciplinas md JOIN public.disciplinas d ON d.id=md.disciplina_id WHERE md.escola_id=${options.schoolId}`,
+    sql<DbGrade[]>`SELECT aluno_id,disciplina_id,nota,status,turma_id FROM public.notas WHERE escola_id=${options.schoolId} AND ano_letivo=${options.year} AND bimestre=${options.term}`,
+  ]);
+  return { schoolName: schools[0].nome, classes, students, disciplines, matrix, grades };
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function executarComRetry<T extends { error?: unknown }>(
-  operacao: () => PromiseLike<T>,
-  descricao: string,
-  tentativas = 5
-): Promise<T> {
-  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
-    try {
-      const resultado = await Promise.resolve(operacao());
-
-      if (!resultado.error) {
-        return resultado;
-      }
-
-      const mensagem = JSON.stringify(resultado.error);
-
-      if (mensagem.includes("fetch failed") || mensagem.includes("ECONNRESET")) {
-        console.log(`⚠️  Retry ${tentativa}/${tentativas} -> ${descricao}`);
-        await sleep(1000 * tentativa);
-        continue;
-      }
-
-      return resultado;
-    } catch {
-      console.log(`⚠️  Erro inesperado em ${descricao} (tentativa ${tentativa})`);
-      await sleep(1000 * tentativa);
-    }
+function resolveDisciplines(dataset: ValidatedDataset, snapshot: Snapshot) {
+  const matrixRows = new Map(snapshot.matrix.map((row) => [`${row.etapa}:${row.codigo}`, row]));
+  const byName = new Map<string, DbDiscipline[]>();
+  for (const row of snapshot.disciplines) {
+    const key = normalizeText(row.nome);
+    byName.set(key, [...(byName.get(key) ?? []), row]);
   }
-
-  throw new Error(`Falha total: ${descricao}`);
-}
-
-function getAnoSerie(nomeTurma: string) {
-  if (nomeTurma.includes("1ª")) return 1;
-  if (nomeTurma.includes("2ª")) return 2;
-  if (nomeTurma.includes("3ª")) return 3;
-  return Number(nomeTurma.replace(/\D/g, ""));
-}
-
-function getGrupoPedagogico(turma: { name: string; level: "EF" | "EM" }) {
-  const anoSerie = getAnoSerie(turma.name);
-
-  if (turma.level === "EF" && [6, 9].includes(anoSerie)) return "FUND_69";
-  if (turma.level === "EF" && [7, 8].includes(anoSerie)) return "FUND_78";
-  if (turma.level === "EM" && [1, 2].includes(anoSerie)) return "MEDIO_12";
-  if (turma.level === "EM" && anoSerie === 3) return "MEDIO_3";
-
-  return "INDEFINIDO";
-}
-
-async function importar() {
-  console.log("🚀 Iniciando importação completa\n");
-
-  // ── 1. Limpar notas e matriz_disciplinas existentes ──────────────────────
-  console.log("🧹 Limpando notas e matriz_disciplinas...");
-
-  await executarComRetry(
-    () =>
-      supabase
-        .from("notas")
-        .delete()
-        .eq("escola_id", ESCOLA_ID)
-        .eq("bimestre", BIMESTRE),
-    `limpar notas do ${BIMESTRE}º bimestre`
-  );
-  await executarComRetry(
-    () => supabase.from("matriz_disciplinas").delete().eq("escola_id", ESCOLA_ID),
-    "limpar matriz_disciplinas"
-  );
-
-  console.log("✅ Limpeza concluída\n");
-
-  // ── 2. Carregar disciplinas existentes no banco ───────────────────────────
-  const disciplinasMap = new Map<string, string>(); // normalized_name → id
-
-  const { data: disciplinasBanco } = await executarComRetry(
-    () => supabase.from("disciplinas").select("id, nome").eq("escola_id", ESCOLA_ID),
-    "buscar disciplinas"
-  );
-
-  for (const d of disciplinasBanco ?? []) {
-    disciplinasMap.set(normalizarTexto(d.nome), d.id);
-  }
-  console.log(`📋 Disciplinas já no banco: ${disciplinasMap.size}`);
-
-  // ── 3. Criar disciplinas que ainda não existem ───────────────────────────
-  console.log("📚 Criando disciplinas faltantes...");
-
-  for (const turma of ALL_CLASSROOMS) {
-    for (const subject of turma.subjects) {
-      const chave = normalizarTexto(subject.name);
-
-      if (!disciplinasMap.has(chave)) {
-        const { data: criada, error } = await executarComRetry(
-          () =>
-            supabase
-              .from("disciplinas")
-              .insert({
-                escola_id: ESCOLA_ID,
-                codigo: subject.name.substring(0, 8).toUpperCase().replace(/\s/g, "_"),
-                nome: subject.name,
-                ativo: true,
-                etapa: "AMBOS",
-              })
-              .select()
-              .single(),
-          `criar disciplina ${subject.name}`
-        );
-
-        if (error || !criada) {
-          console.log(`❌ Erro disciplina ${subject.name}:`, error);
-          continue;
-        }
-
-        disciplinasMap.set(chave, criada.id);
-        console.log(`  ✅ Disciplina criada: ${subject.name}`);
-        await sleep(100);
-      }
-    }
-  }
-
-  console.log(`📋 Total de disciplinas: ${disciplinasMap.size}\n`);
-
-  // ── 4. Criar/atualizar turmas ─────────────────────────────────────────────
-  console.log("🏫 Importando turmas...");
-
-  const turmasMap = new Map<string, string>(); // classroom.id → uuid no banco
-
-  for (const turma of ALL_CLASSROOMS) {
-    const anoSerie = getAnoSerie(turma.name);
-    const grupoPedagogico = getGrupoPedagogico(turma);
-
-    const { data: existente } = await executarComRetry(
-      () =>
-        supabase
-          .from("turmas")
-          .select("id")
-          .eq("escola_id", ESCOLA_ID)
-          .eq("nome", turma.name)
-          .maybeSingle(),
-      `buscar turma ${turma.name}`
-    );
-
-    if (existente) {
-      await executarComRetry(
-        () =>
-          supabase
-            .from("turmas")
-            .update({
-              grupo_pedagogico: grupoPedagogico,
-              etapa: turma.level,
-              ano_serie: anoSerie,
-              periodo: "Manhã",
-              total_ativos: turma.totalActive,
-              ativo: true,
-            })
-            .eq("id", existente.id),
-        `atualizar turma ${turma.name}`
-      );
-      turmasMap.set(turma.id, existente.id);
-      console.log(`  🔁 Turma atualizada: ${turma.name}`);
-    } else {
-      const { data: criada, error } = await executarComRetry(
-        () =>
-          supabase
-            .from("turmas")
-            .insert({
-              escola_id: ESCOLA_ID,
-              nome: turma.name,
-              etapa: turma.level,
-              ano_serie: anoSerie,
-              periodo: "Manhã",
-              total_ativos: turma.totalActive,
-              grupo_pedagogico: grupoPedagogico,
-              ativo: true,
-            })
-            .select()
-            .single(),
-        `criar turma ${turma.name}`
-      );
-
-      if (error || !criada) {
-        console.log(`  ❌ Erro ao criar turma ${turma.name}:`, error);
-        continue;
-      }
-      turmasMap.set(turma.id, criada.id);
-      console.log(`  ✅ Turma criada: ${turma.name} [${grupoPedagogico}]`);
-    }
-
-    await sleep(100);
-  }
-
-  console.log();
-
-  // ── 5. Criar matriz_disciplinas ───────────────────────────────────────────
-  console.log("🗂️  Montando matriz de disciplinas por grupo pedagógico...");
-
-  const matrizMap = new Map<string, string>(); // "GRUPO_C01" → disciplina_id
-  const matrizControle = new Set<string>();
-
-  for (const turma of ALL_CLASSROOMS) {
-    const grupoPedagogico = getGrupoPedagogico(turma);
-
-    for (const subject of turma.subjects) {
-      const chave = `${grupoPedagogico}_${subject.code}`;
-
-      if (matrizControle.has(chave)) continue;
-      matrizControle.add(chave);
-
-      const disciplinaId = disciplinasMap.get(normalizarTexto(subject.name));
-
-      if (!disciplinaId) {
-        console.log(`  ⚠️  Disciplina não encontrada no map: ${subject.name}`);
-        continue;
-      }
-
-      const { error } = await executarComRetry(
-        () =>
-          supabase.from("matriz_disciplinas").insert({
-            escola_id: ESCOLA_ID,
-            etapa: grupoPedagogico,
-            codigo: subject.code,
-            disciplina_id: disciplinaId,
-            ativo: true,
-          }),
-        `matriz ${grupoPedagogico} ${subject.code} ${subject.name}`
-      );
-
-      if (error) {
-        console.log(`  ❌ Erro matriz ${grupoPedagogico} ${subject.code}:`, error);
-        continue;
-      }
-
-      matrizMap.set(chave, disciplinaId);
-      console.log(`  ✅ Matriz: ${grupoPedagogico} | ${subject.code} → ${subject.name}`);
-      await sleep(120);
-    }
-  }
-
-  console.log();
-
-  // ── 6. Criar/atualizar alunos e inserir notas ─────────────────────────────
-  console.log("👥 Importando alunos e notas...");
-
-  let totalNotas = 0;
-  let totalAlunos = 0;
-
-  for (const turma of ALL_CLASSROOMS) {
-    const turmaDbId = turmasMap.get(turma.id);
-    const grupoPedagogico = getGrupoPedagogico(turma);
-
-    if (!turmaDbId) {
-      console.log(`  ⚠️  Turma sem ID no map: ${turma.name}`);
+  const resolved = new Map<string, { disciplineId?: string; subjectName: string; normalizedName: string }>();
+  const newNames = new Set<string>();
+  for (const item of dataset.matrix) {
+    const key = `${item.group}:${item.code}`;
+    const matrixRow = matrixRows.get(key);
+    if (matrixRow) {
+      if (!sameText(matrixRow.disciplina_nome, item.subjectName)) throw new Error(`${key}: banco="${matrixRow.disciplina_nome}"; fonte="${item.subjectName}"`);
+      resolved.set(key, { disciplineId: matrixRow.disciplina_id, subjectName: item.subjectName, normalizedName: item.normalizedName });
       continue;
     }
-
-    console.log(`\n  📘 Turma: ${turma.name}`);
-
-    for (const student of turma.students) {
-      const eTransferido = Object.values(student.grades).every((g) => g === "TR");
-      const status = eTransferido ? "TRANSFERIDO" : "ATIVO";
-
-      const { data: existente } = await executarComRetry(
-        () =>
-          supabase
-            .from("alunos")
-            .select("id")
-            .eq("escola_id", ESCOLA_ID)
-            .eq("turma_id", turmaDbId)
-            .eq("numero_chamada", student.id)
-            .maybeSingle(),
-        `buscar aluno ${student.name}`
-      );
-
-      let alunoId: string | undefined = existente?.id;
-
-      if (alunoId) {
-        await executarComRetry(
-          () =>
-            supabase
-              .from("alunos")
-              .update({ nome: student.name, status, em_atencao: student.isAttention })
-              .eq("id", alunoId),
-          `atualizar aluno ${student.name}`
-        );
-        console.log(`    🔁 ${student.name}`);
-      } else {
-        const { data: criado, error } = await executarComRetry(
-          () =>
-            supabase
-              .from("alunos")
-              .insert({
-                escola_id: ESCOLA_ID,
-                turma_id: turmaDbId,
-                nome: student.name,
-                numero_chamada: student.id,
-                status,
-                em_atencao: student.isAttention,
-                ativo: true,
-              })
-              .select()
-              .single(),
-          `criar aluno ${student.name}`
-        );
-
-        if (error || !criado) {
-          console.log(`    ❌ Erro criar aluno ${student.name}:`, error);
-          continue;
-        }
-
-        alunoId = criado.id;
-        totalAlunos++;
-        console.log(`    ✅ ${student.name} [${status}]`);
-      }
-
-      if (!alunoId || eTransferido) continue;
-
-      const notasParaInserir: NotaInsert[] = [];
-
-      for (const [codigo, valor] of Object.entries(student.grades)) {
-        if (typeof valor !== "number") continue;
-        if (valor === 0) continue; // 0 = placeholder não preenchido, nunca inserir
-
-        const chave = `${grupoPedagogico}_${codigo}`;
-        const disciplinaId = matrizMap.get(chave);
-
-        if (!disciplinaId) continue;
-
-        notasParaInserir.push({
-          escola_id: ESCOLA_ID,
-          turma_id: turmaDbId,
-          aluno_id: alunoId,
-          disciplina_id: disciplinaId,
-          ano_letivo: ANO_LETIVO,
-          bimestre: BIMESTRE,
-          nota: valor,
-          status: "NORMAL",
-        });
-      }
-
-      if (notasParaInserir.length > 0) {
-        const { error } = await executarComRetry(
-          () => supabase.from("notas").insert(notasParaInserir),
-          `notas de ${student.name}`
-        );
-
-        if (error) {
-          console.log(`    ❌ Erro nas notas de ${student.name}:`, error);
-        } else {
-          totalNotas += notasParaInserir.length;
-        }
-      }
-
-      await sleep(130);
-    }
+    const candidates = byName.get(item.normalizedName) ?? [];
+    if (candidates.length > 1) throw new Error(`${key}: existem ${candidates.length} disciplinas chamadas "${item.subjectName}" sem matriz para resolver a ambiguidade`);
+    resolved.set(key, { disciplineId: candidates[0]?.id, subjectName: item.subjectName, normalizedName: item.normalizedName });
+    if (candidates.length === 0) newNames.add(item.normalizedName);
   }
-
-  console.log(`\n${"─".repeat(50)}`);
-  console.log(`✅ Alunos criados/atualizados: ${totalAlunos}`);
-  console.log(`✅ Notas inseridas: ${totalNotas}`);
-  console.log(`✅ Disciplinas no banco: ${disciplinasMap.size}`);
-  console.log("🎉 IMPORTAÇÃO FINALIZADA COM SUCESSO");
+  return { resolved, newNames };
 }
 
-importar().catch((error) => {
-  console.error("💥 Erro fatal na importação:", error);
-  process.exit(1);
-});
+function createPlan(dataset: ValidatedDataset, snapshot: Snapshot): Plan {
+  const plan: Plan = {
+    classes: { create: 0, update: 0, unchanged: 0 }, students: { create: 0, update: 0, unchanged: 0 },
+    disciplines: { create: 0, reuse: 0 }, matrix: { create: 0, update: 0, unchanged: 0 },
+    grades: { create: 0, update: 0, unchanged: 0 }, deletes: 0,
+  };
+  const { resolved, newNames } = resolveDisciplines(dataset, snapshot);
+  plan.disciplines.create = newNames.size;
+  plan.disciplines.reuse = new Set([...resolved.values()].flatMap((item) => item.disciplineId ? [item.disciplineId] : [])).size;
+  const classes = new Map(snapshot.classes.map((row) => [row.nome, row]));
+  const normalizedClasses = new Map(snapshot.classes.map((row) => [normalizeText(row.nome), row.nome]));
+  const students = new Map(snapshot.students.map((row) => [`${row.turma_id}:${row.numero_chamada}`, row]));
+  const matrix = new Map(snapshot.matrix.map((row) => [`${row.etapa}:${row.codigo}`, row]));
+  const grades = new Map(snapshot.grades.map((row) => [`${row.aluno_id}:${row.disciplina_id}`, row]));
+
+  for (const classroom of dataset.classes) {
+    const dbClass = classes.get(classroom.name);
+    const normalizedMatch = normalizedClasses.get(normalizeText(classroom.name));
+    if (!dbClass && normalizedMatch) throw new Error(`A turma "${classroom.name}" coincide com "${normalizedMatch}" após normalização`);
+    const group = getPedagogicalGroup(classroom);
+    const changed = dbClass && (dbClass.etapa !== classroom.level || dbClass.ano_serie !== getSchoolYear(classroom.name) || dbClass.periodo !== "Manhã" || dbClass.total_ativos !== classroom.totalActive || dbClass.grupo_pedagogico !== group || !dbClass.ativo);
+    if (!dbClass) plan.classes.create++; else if (changed) plan.classes.update++; else plan.classes.unchanged++;
+    for (const student of classroom.students) {
+      const transferred = Object.values(student.grades).every((grade) => grade === "TR");
+      const dbStudent = dbClass ? students.get(`${dbClass.id}:${student.id}`) : undefined;
+      const changedStudent = dbStudent && (dbStudent.nome !== student.name || dbStudent.status !== (transferred ? "TRANSFERIDO" : "ATIVO") || dbStudent.em_atencao !== student.isAttention || dbStudent.ativo !== !transferred);
+      if (!dbStudent) plan.students.create++; else if (changedStudent) plan.students.update++; else plan.students.unchanged++;
+      if (transferred) continue;
+      for (const [code, value] of Object.entries(student.grades)) {
+        if (typeof value !== "number") continue;
+        const disciplineId = resolved.get(`${group}:${code.toUpperCase()}`)?.disciplineId;
+        const dbGrade = dbStudent && disciplineId ? grades.get(`${dbStudent.id}:${disciplineId}`) : undefined;
+        if (!dbGrade) plan.grades.create++;
+        else if (Number(dbGrade.nota) !== value || dbGrade.status !== "NORMAL" || dbGrade.turma_id !== dbClass?.id) plan.grades.update++;
+        else plan.grades.unchanged++;
+      }
+    }
+  }
+  for (const item of dataset.matrix) {
+    const key = `${item.group}:${item.code}`;
+    const current = matrix.get(key);
+    const target = resolved.get(key);
+    if (!current) plan.matrix.create++;
+    else if (!current.ativo || current.disciplina_id !== target?.disciplineId) plan.matrix.update++;
+    else plan.matrix.unchanged++;
+  }
+  return plan;
+}
+
+async function applyDataset(sql: ReturnType<typeof postgres>, options: ImportOptions, dataset: ValidatedDataset, snapshot: Snapshot, report: Report) {
+  const initial = resolveDisciplines(dataset, snapshot);
+  await sql.begin(async (tx) => {
+    const idsByName = new Map<string, string>();
+    for (const item of initial.resolved.values()) if (item.disciplineId) idsByName.set(item.normalizedName, item.disciplineId);
+    for (const normalizedName of initial.newNames) {
+      const item = [...initial.resolved.values()].find((row) => row.normalizedName === normalizedName)!;
+      const rows = await tx<{ id: string }[]>`INSERT INTO public.disciplinas (escola_id,codigo,nome,ativo,etapa) VALUES (${options.schoolId},${newCode(item.subjectName)},${item.subjectName},true,'AMBOS') RETURNING id`;
+      idsByName.set(normalizedName, rows[0].id);
+    }
+    const matrixIds = new Map<string, string>();
+    for (const item of dataset.matrix) {
+      const key = `${item.group}:${item.code}`;
+      const found = initial.resolved.get(key)!;
+      const disciplineId = found.disciplineId ?? idsByName.get(item.normalizedName);
+      if (!disciplineId) throw new Error(`Disciplina não resolvida para ${key}`);
+      await tx`INSERT INTO public.matriz_disciplinas (escola_id,etapa,codigo,disciplina_id,ativo) VALUES (${options.schoolId},${item.group},${item.code},${disciplineId},true) ON CONFLICT (escola_id,etapa,codigo) DO UPDATE SET disciplina_id=EXCLUDED.disciplina_id,ativo=true`;
+      matrixIds.set(key, disciplineId);
+    }
+    for (const classroom of dataset.classes) {
+      const group = getPedagogicalGroup(classroom);
+      const classRows = await tx<{ id: string }[]>`INSERT INTO public.turmas (escola_id,nome,etapa,ano_serie,periodo,total_ativos,grupo_pedagogico,ativo) VALUES (${options.schoolId},${classroom.name},${classroom.level},${getSchoolYear(classroom.name)},'Manhã',${classroom.totalActive},${group},true) ON CONFLICT (escola_id,nome) DO UPDATE SET etapa=EXCLUDED.etapa,ano_serie=EXCLUDED.ano_serie,periodo=EXCLUDED.periodo,total_ativos=EXCLUDED.total_ativos,grupo_pedagogico=EXCLUDED.grupo_pedagogico,ativo=true RETURNING id`;
+      const classId = classRows[0].id;
+      for (const student of classroom.students) {
+        const transferred = Object.values(student.grades).every((grade) => grade === "TR");
+        const studentRows = await tx<{ id: string }[]>`INSERT INTO public.alunos (escola_id,turma_id,nome,numero_chamada,status,em_atencao,ativo) VALUES (${options.schoolId},${classId},${student.name},${student.id},${transferred ? "TRANSFERIDO" : "ATIVO"},${student.isAttention},${!transferred}) ON CONFLICT (turma_id,numero_chamada) DO UPDATE SET escola_id=EXCLUDED.escola_id,nome=EXCLUDED.nome,status=EXCLUDED.status,em_atencao=EXCLUDED.em_atencao,ativo=EXCLUDED.ativo RETURNING id`;
+        const enrollmentRows = await tx<{ id: string }[]>`INSERT INTO public.matriculas (escola_id,aluno_id,turma_id,ano_letivo,numero_chamada,status,data_inicio) VALUES (${options.schoolId},${studentRows[0].id},${classId},${options.year},${student.id},${transferred ? "TRANSFERIDA" : "ATIVA"},make_date(${options.year},1,1)) ON CONFLICT (aluno_id,turma_id,ano_letivo) DO UPDATE SET numero_chamada=EXCLUDED.numero_chamada,status=EXCLUDED.status,updated_at=now() RETURNING id`;
+        if (transferred) continue;
+        for (const [code, value] of Object.entries(student.grades)) {
+          if (typeof value !== "number") continue;
+          const disciplineId = matrixIds.get(`${group}:${code.toUpperCase()}`);
+          if (!disciplineId) throw new Error(`Matriz não resolvida para ${group}:${code}`);
+          await tx`INSERT INTO public.notas (escola_id,turma_id,aluno_id,matricula_id,disciplina_id,ano_letivo,bimestre,nota,status,origem_calculo) VALUES (${options.schoolId},${classId},${studentRows[0].id},${enrollmentRows[0].id},${disciplineId},${options.year},${options.term},${value},'NORMAL','LANCAMENTO_MANUAL') ON CONFLICT (aluno_id,disciplina_id,bimestre,ano_letivo) DO UPDATE SET escola_id=EXCLUDED.escola_id,turma_id=EXCLUDED.turma_id,matricula_id=EXCLUDED.matricula_id,nota=EXCLUDED.nota,status=EXCLUDED.status,origem_calculo=EXCLUDED.origem_calculo,updated_at=now()`;
+        }
+      }
+    }
+    await tx`INSERT INTO public.logs_acesso (usuario_email,role,escola_id,acao,tela,dados_novos,sucesso) VALUES (${options.operator!},'SISTEMA',${options.schoolId},'IMPORTACAO_DADOS','scripts/import-school-data',${JSON.stringify(report)}::jsonb,true)`;
+  });
+}
+
+async function saveReport(path: string | undefined, report: Report) {
+  if (!path) return;
+  const fullPath = resolve(path);
+  await mkdir(dirname(fullPath), { recursive: true });
+  await writeFile(fullPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  console.log(`Relatório gravado em ${fullPath}`);
+}
+
+async function main() {
+  const options = parseImportOptions(process.argv.slice(2));
+  const dataset = validateDataset(pickSource(options.source), options.zeroPolicy);
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL não configurada");
+  const sql = postgres(process.env.DATABASE_URL, { max: 5, prepare: false });
+  const batchId = randomUUID();
+  try {
+    const snapshot = await loadSnapshot(sql, options);
+    const report: Report = {
+      batchId, mode: options.apply ? "apply" : "dry-run", generatedAt: new Date().toISOString(),
+      school: { id: options.schoolId, name: snapshot.schoolName }, source: options.source,
+      year: options.year, term: options.term, zeroPolicy: options.zeroPolicy,
+      sourceSummary: dataset.summary, warnings: dataset.warnings,
+      plan: createPlan(dataset, snapshot), backupReference: options.backupReference, operator: options.operator,
+    };
+    console.log(JSON.stringify(report, null, 2));
+    await saveReport(options.reportPath, report);
+    if (!options.apply) {
+      console.log(`SIMULAÇÃO concluída. Nenhuma linha foi alterada. Para aplicar: --apply --confirm=${expectedConfirmation(options)}`);
+      return;
+    }
+    await applyDataset(sql, options, dataset, snapshot, report);
+    console.log(`Importação ${batchId} aplicada em uma transação e registrada em logs_acesso.`);
+  } catch (error) {
+    if (options.apply) {
+      try {
+        await sql`INSERT INTO public.logs_acesso (usuario_email,role,escola_id,acao,tela,dados_novos,sucesso) VALUES (${options.operator ?? "desconhecido"},'SISTEMA',${options.schoolId},'IMPORTACAO_DADOS','scripts/import-school-data',${JSON.stringify({ batchId, error: error instanceof Error ? error.message : String(error) })}::jsonb,false)`;
+      } catch { /* O erro original é preservado. */ }
+    }
+    throw error;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+main().catch((error) => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; });
+
