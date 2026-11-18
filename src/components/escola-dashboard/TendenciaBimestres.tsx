@@ -37,8 +37,12 @@ type Props = {
 function corPorMedia(media: number): string {
   if (media < 5) return "#ef4444";
   if (media < 7) return "#eab308";
-  if (media < 9) return "#22c55e";
+  if (media < 8) return "#22c55e";
   return "#3b82f6";
+}
+
+function nomeBimestre(bimestre: number): string {
+  return `${bimestre}º Bimestre`;
 }
 
 function DotCustom(props: {
@@ -133,7 +137,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
         if (escolaId) params.set("escolaId", escolaId);
         const res = await fetch(`/api/dashboard/tendencia?${params}`);
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Erro ao carregar tendencia");
+        if (!res.ok) throw new Error(json.error ?? "Erro ao carregar tendência");
         setData(json);
       } catch (e) {
         setErro(e instanceof Error ? e.message : "Erro inesperado");
@@ -170,7 +174,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
   if (erro) {
     return (
       <div className="rounded-3xl border border-red-900 bg-red-950/30 p-8 shadow-2xl backdrop-blur">
-        <p className="text-red-300">Erro ao carregar tendencia: {erro}</p>
+        <p className="text-red-300">Erro ao carregar tendência: {erro}</p>
         <button
           onClick={() => setRefreshKey((k) => k + 1)}
           className="mt-4 rounded-2xl border border-red-700 bg-red-900/40 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-900/60"
@@ -183,7 +187,10 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
 
   if (!data) return null;
 
-  const { pontos } = data;
+  const pontos = data.pontos.map((ponto) => ({
+    ...ponto,
+    label: nomeBimestre(ponto.bimestre),
+  }));
   const pontosComDados = pontos.filter((p) => p.temDados && p.media !== null);
   const temTendencia = pontosComDados.length >= 2;
 
@@ -194,7 +201,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
       ? ultimo.media - primeiro.media
       : null;
 
-  const escopo = data.turma ? `Turma ${data.turma.nome}` : "Escola - todas as turmas";
+  const escopo = data.turma ? `Turma ${data.turma.nome}` : "Escola — todas as turmas";
 
   return (
     <div
@@ -219,13 +226,13 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
               color: "var(--text-secondary)",
             }}
           >
-            Evolucao anual
+            Evolução anual
           </div>
           <h2 className="text-2xl font-black tracking-tight md:text-3xl">
-            Tendencia dos Bimestres
+            Tendência dos Bimestres
           </h2>
           <p className="mt-2 text-sm leading-relaxed md:text-base" style={{ color: "var(--text-secondary)" }}>
-            {escopo} - evolucao da media geral ao longo do ano.
+            {escopo} — evolução da média geral ao longo do ano letivo.
           </p>
         </div>
 
@@ -270,13 +277,13 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
               color: "var(--text-secondary)",
             }}
           >
-            Dados insuficientes para exibir tendencia (minimo 2 bimestres com notas).
+            Dados insuficientes para exibir a tendência (mínimo de 2 bimestres com notas).
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <LineChart
               data={pontos}
-              margin={{ top: 16, right: 48, left: -10, bottom: 0 }}
+              margin={{ top: 16, right: 112, left: -10, bottom: 0 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
@@ -286,7 +293,8 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
 
               <XAxis
                 dataKey="label"
-                tick={{ fill: chartC.tick, fontSize: 13, fontWeight: 700 }}
+                interval={0}
+                tick={{ fill: chartC.tick, fontSize: 12, fontWeight: 700 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -305,7 +313,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
                 strokeDasharray="5 4"
                 strokeOpacity={0.5}
                 label={{
-                  value: "5,0 basico",
+                  value: "5,0 básico",
                   position: "right",
                   fill: "#ef4444",
                   fontSize: 11,
@@ -380,7 +388,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
           return (
             <div
               key={p.bimestre}
-              className="rounded-2xl border p-4 transition"
+              className="flex min-h-36 flex-col rounded-2xl border p-4 transition"
               style={
                 p.temDados
                   ? {
@@ -395,7 +403,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
               }
             >
               <p
-                className="text-xs font-semibold uppercase tracking-widest"
+                className="min-h-10 text-sm font-bold leading-tight"
                 style={{ color: "var(--text-secondary)" }}
               >
                 {p.label}
@@ -413,7 +421,7 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
                 {p.temDados && p.media !== null ? p.media.toFixed(1) : "-"}
               </p>
 
-              <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="mt-auto flex items-end justify-between gap-2 pt-4">
                 {p.temDados ? (
                   <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
                     {p.totalNotas} notas
@@ -447,10 +455,10 @@ export default function TendenciaBimestres({ turmaId, escolaId }: Props) {
       {/* Legend */}
       <div className="relative z-10 mt-5 flex flex-wrap gap-3">
         {[
-          { cor: "#ef4444", texto: "< 5,0 Abaixo do Basico" },
-          { cor: "#eab308", texto: "5,0-6,9 Basico" },
-          { cor: "#22c55e", texto: "7,0-8,9 Adequado" },
-          { cor: "#3b82f6", texto: ">= 9,0 Avancado" },
+          { cor: "#ef4444", texto: "< 5,0 Abaixo do Básico" },
+          { cor: "#eab308", texto: "5,0–6,9 Básico" },
+          { cor: "#22c55e", texto: "7,0–7,9 Adequado" },
+          { cor: "#3b82f6", texto: "8,0–10 Avançado" },
         ].map(({ cor, texto }) => (
           <div
             key={texto}

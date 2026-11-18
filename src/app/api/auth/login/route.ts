@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     }
 
     const rows = await db`
-      SELECT id, nome, email, role, escola_id, senha_hash, is_dev_master, deve_trocar_senha
+      SELECT id, nome, email, role, escola_id, senha_hash, is_dev_master, deve_trocar_senha, session_version
       FROM usuarios
       WHERE email = ${email.toLowerCase().trim()} AND ativo = true
       LIMIT 1
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       lembrar: Boolean(lembrarAcesso),
       is_dev_master: Boolean(usuario.is_dev_master),
       deve_trocar_senha: Boolean(usuario.deve_trocar_senha),
+      session_version: Number(usuario.session_version ?? 0),
     }
 
     const token = await signToken(payload, { lembrarAcesso: Boolean(lembrarAcesso) })

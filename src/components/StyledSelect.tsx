@@ -15,7 +15,7 @@ type Props = SelectHTMLAttributes<HTMLSelectElement>;
  */
 export default function StyledSelect({ className = "", style, onFocus, onBlur, children, ...rest }: Props) {
   return (
-    <div className="relative inline-flex min-w-0">
+    <div className="relative flex w-full min-w-0">
       <select
         {...rest}
         onFocus={(e) => {

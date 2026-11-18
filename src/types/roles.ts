@@ -31,6 +31,8 @@ export interface RoleCapabilities {
   manageUsuarios: boolean
   /** Pode acessar a tela de logs de auditoria */
   viewAuditLogs: boolean
+  /** Pode consultar e exportar relatórios oficiais */
+  viewReports: boolean
   /** Pode lançar/editar notas (sempre restrito às turmas visíveis do usuário — F-01) */
   manageNotas: boolean
   /**
@@ -48,6 +50,7 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
     viewAllTurmasDaEscola: true,
     manageUsuarios: true,
     viewAuditLogs: true,
+    viewReports: true,
     manageNotas: true,
     devTools: true,
   },
@@ -56,6 +59,7 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
     viewAllTurmasDaEscola: true,
     manageUsuarios: true,
     viewAuditLogs: true,
+    viewReports: true,
     manageNotas: true,
     devTools: false,
   },
@@ -67,6 +71,7 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
     // criar/alterar um papel acima do seu (ver api/usuarios e api/usuarios/[id]/resetar-senha).
     manageUsuarios: true,
     viewAuditLogs: false,
+    viewReports: true,
     manageNotas: true,
     devTools: false,
   },
@@ -75,6 +80,7 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
     viewAllTurmasDaEscola: false,
     manageUsuarios: false,
     viewAuditLogs: false,
+    viewReports: true,
     manageNotas: true,
     devTools: false,
   },
@@ -83,6 +89,7 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
     viewAllTurmasDaEscola: true,
     manageUsuarios: false,
     viewAuditLogs: false,
+    viewReports: true,
     manageNotas: false,
     devTools: false,
   },
@@ -90,6 +97,14 @@ export const CAPABILITIES: Record<Role, RoleCapabilities> = {
 
 export function capabilitiesFor(role: string): RoleCapabilities {
   return isRole(role) ? CAPABILITIES[role] : CAPABILITIES.LEITOR
+}
+
+/**
+ * Mantem as guardas de pagina sincronizadas com a mesma matriz de capacidades
+ * usada pelos menus e pelas APIs.
+ */
+export function rolesWithCapability(capability: keyof RoleCapabilities): Role[] {
+  return ROLES.filter((role) => CAPABILITIES[role][capability])
 }
 
 /** Papéis que um usuário com determinado papel pode atribuir a outro usuário (nunca a si mesmo, nunca acima do próprio nível). */

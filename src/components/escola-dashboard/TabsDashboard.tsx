@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Aba = "visao" | "turmas" | "disciplinas" | "alertas" | "heatmap" | "comparativo";
 
@@ -23,9 +24,15 @@ export default function TabsDashboard({
   comparativo,
   abaInicial = "visao",
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const abaInicialValida =
     abaInicial === "comparativo" && !comparativo ? "visao" : abaInicial;
-  const [abaAtiva, setAbaAtiva] = useState<Aba>(abaInicialValida);
+  const [selecao, setSelecao] = useState<{ origem: Aba; aba: Aba }>(() => ({
+    origem: abaInicialValida,
+    aba: abaInicialValida,
+  }));
 
   const abasBase = [
     { id: "visao" as const, nome: "Visão Geral" },
@@ -39,7 +46,23 @@ export default function TabsDashboard({
     ? [...abasBase, { id: "comparativo" as const, nome: "Comparativo" }]
     : abasBase;
 
+  const abaAtiva =
+    selecao.origem === abaInicialValida && abas.some((aba) => aba.id === selecao.aba)
+      ? selecao.aba
+      : abaInicialValida;
+
   const colunas = abas.length <= 5 ? `md:grid-cols-5` : `md:grid-cols-6`;
+
+  function selecionarAba(aba: Aba) {
+    if (aba === "turmas" && searchParams.has("turma")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("turma");
+      params.set("tab", "turmas");
+      router.push(`${pathname}?${params.toString()}`);
+      return;
+    }
+    setSelecao({ origem: abaInicialValida, aba });
+  }
 
   return (
     <div className="mt-6">
@@ -59,7 +82,7 @@ export default function TabsDashboard({
             return (
               <button
                 key={aba.id}
-                onClick={() => setAbaAtiva(aba.id)}
+                onClick={() => selecionarAba(aba.id)}
                 className="px-4 py-2.5 text-sm transition"
                 style={{
                   borderRadius: "var(--radius-sm)",
@@ -85,7 +108,7 @@ export default function TabsDashboard({
         </div>
       </div>
 
-      <div className="mt-6">
+      <div key={abaAtiva} className="motion-tab-content mt-6">
         {abaAtiva === "visao" && visaoGeral}
         {abaAtiva === "turmas" && turmas}
         {abaAtiva === "disciplinas" && disciplinas}

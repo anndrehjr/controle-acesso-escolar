@@ -37,8 +37,10 @@ test("classifica cada aluno numa única faixa (crítico/básico/adequado/avança
     aluno("a2", { numero_chamada: 2 }),
     aluno("a3", { numero_chamada: 3 }),
     aluno("a4", { numero_chamada: 4 }),
+    aluno("a5", { numero_chamada: 5 }),
+    aluno("a6", { numero_chamada: 6 }),
   ];
-  const notas = [nota("a1", 3), nota("a2", 5.5), nota("a3", 7.5), nota("a4", 9.5)];
+  const notas = [nota("a1", 3), nota("a2", 5.5), nota("a3", 7.5), nota("a4", 9.5), nota("a5", 8), nota("a6", 8.1)];
 
   const resultado = buildDistribuicaoPedagogica({ alunos, notas, turmas: [TURMA] });
 
@@ -47,7 +49,7 @@ test("classifica cada aluno numa única faixa (crítico/básico/adequado/avança
     critico: 1,
     basico: 1,
     adequado: 1,
-    avancado: 1,
+    avancado: 3,
   });
 });
 

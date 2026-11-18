@@ -190,7 +190,7 @@ export default function RankingTurmas({ ranking, basePath }: Props) {
                         background: "var(--bg-card)",
                       }}
                     >
-                      B1 × B2
+                      Comparativo
                     </Link>
                     <Link
                       href={`${basePath}?turma=${item.turma.id}&tab=heatmap`}

@@ -67,7 +67,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const hash = await bcrypt.hash(novaSenha, 12);
-  await db`UPDATE usuarios SET senha_hash = ${hash} WHERE id = ${id}`;
+  await db`
+    UPDATE usuarios SET senha_hash = ${hash}, deve_trocar_senha = true,
+      session_version = session_version + 1 WHERE id = ${id}
+  `;
 
   // Nunca logar a senha em si — só quem e quando.
   await registrarAuditoria({
@@ -78,5 +81,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     dadosNovos: { usuarioAlvoId: id, usuarioAlvoEmail: alvo.email },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, sessoesRevogadas: true });
 }

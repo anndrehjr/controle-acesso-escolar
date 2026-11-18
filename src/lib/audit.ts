@@ -3,9 +3,13 @@ import type { JWTPayload } from './auth'
 
 export interface RegistrarAuditoriaInput {
   usuario?: JWTPayload | null
-  /** Usado quando ainda não há usuário autenticado (ex: falha de login) */
+  /** Usado quando ainda não há usuário autenticado (ex: falha de login). */
   usuarioEmailTentativa?: string
+  /** Escola afetada. Necessário para perfis globais, cujo token não possui escola_id. */
+  escolaId?: string | null
   acao: string
+  tabela?: string
+  registroId?: string | null
   tela?: string
   req?: Request
   dadosAnteriores?: unknown
@@ -13,37 +17,60 @@ export interface RegistrarAuditoriaInput {
   sucesso?: boolean
 }
 
-function ipDe(req?: Request): string | null {
+export type RegistroAuditoria = {
+  usuario_id: string | null
+  usuario_email: string | null
+  role: string | null
+  escola_id: string | null
+  acao: string
+  tabela: string | null
+  registro_id: string | null
+  tela: string | null
+  ip: string | null
+  user_agent: string | null
+  dados_anteriores: string | null
+  dados_novos: string | null
+  sucesso: boolean
+}
+
+export function ipDe(req?: Request): string | null {
   if (!req) return null
-  return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
-    null
-  )
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? null
+}
+
+export function montarRegistroAuditoria(input: RegistrarAuditoriaInput): RegistroAuditoria {
+  return {
+    usuario_id: input.usuario?.id ?? null,
+    usuario_email: input.usuario?.email ?? input.usuarioEmailTentativa ?? null,
+    role: input.usuario?.role ?? null,
+    escola_id: input.escolaId ?? input.usuario?.escola_id ?? null,
+    acao: input.acao,
+    tabela: input.tabela ?? null,
+    registro_id: input.registroId ?? null,
+    tela: input.tela ?? null,
+    ip: ipDe(input.req),
+    user_agent: input.req?.headers.get('user-agent') ?? null,
+    dados_anteriores: input.dadosAnteriores === undefined ? null : JSON.stringify(input.dadosAnteriores),
+    dados_novos: input.dadosNovos === undefined ? null : JSON.stringify(input.dadosNovos),
+    sucesso: input.sucesso ?? true,
+  }
 }
 
 /**
- * Grava uma linha em logs_acesso. Nunca lança — auditoria não pode derrubar a requisição
- * principal; falha de log é reportada só no console do servidor.
+ * Auditoria auxiliar para eventos que não fazem parte de uma alteração crítica.
+ * Operações críticas devem inserir montarRegistroAuditoria() dentro da mesma transação.
  */
 export async function registrarAuditoria(input: RegistrarAuditoriaInput): Promise<void> {
   try {
+    const row = montarRegistroAuditoria(input)
     await db`
       INSERT INTO logs_acesso (
-        usuario_id, usuario_email, role, escola_id, acao, tela,
-        ip, user_agent, dados_anteriores, dados_novos, sucesso
+        usuario_id, usuario_email, role, escola_id, acao, tabela, registro_id,
+        tela, ip, user_agent, dados_anteriores, dados_novos, sucesso
       ) VALUES (
-        ${input.usuario?.id ?? null},
-        ${input.usuario?.email ?? input.usuarioEmailTentativa ?? null},
-        ${input.usuario?.role ?? null},
-        ${input.usuario?.escola_id ?? null},
-        ${input.acao},
-        ${input.tela ?? null},
-        ${ipDe(input.req)},
-        ${input.req?.headers.get('user-agent') ?? null},
-        ${input.dadosAnteriores ? JSON.stringify(input.dadosAnteriores) : null},
-        ${input.dadosNovos ? JSON.stringify(input.dadosNovos) : null},
-        ${input.sucesso ?? true}
+        ${row.usuario_id}, ${row.usuario_email}, ${row.role}, ${row.escola_id},
+        ${row.acao}, ${row.tabela}, ${row.registro_id}, ${row.tela}, ${row.ip},
+        ${row.user_agent}, ${row.dados_anteriores}, ${row.dados_novos}, ${row.sucesso}
       )
     `
   } catch (err) {

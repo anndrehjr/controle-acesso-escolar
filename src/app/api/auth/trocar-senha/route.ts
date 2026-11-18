@@ -42,8 +42,10 @@ export async function POST(request: Request) {
   }
 
   const hash = await bcrypt.hash(novaSenha, 12);
-  await db`
-    UPDATE usuarios SET senha_hash = ${hash}, deve_trocar_senha = false WHERE id = ${perfil.id}
+  const [atualizado] = await db`
+    UPDATE usuarios SET senha_hash = ${hash}, deve_trocar_senha = false,
+      session_version = session_version + 1 WHERE id = ${perfil.id}
+    RETURNING session_version
   `;
 
   await registrarAuditoria({
@@ -55,7 +57,10 @@ export async function POST(request: Request) {
 
   // Reemite o token com deve_trocar_senha=false — sem isso o middleware continuaria
   // redirecionando pra /trocar-senha até a sessão expirar naturalmente.
-  const novoPayload = { ...perfil, deve_trocar_senha: false };
+  const novoPayload = {
+    ...perfil, deve_trocar_senha: false,
+    session_version: Number(atualizado.session_version),
+  };
   const lembrar = perfil.lembrar ?? false;
   const token = await signToken(novoPayload, { lembrarAcesso: lembrar });
 

@@ -32,14 +32,14 @@ type ModalAberto =
 function corMedia(m: number) {
   if (m < 5) return "#ef4444";
   if (m < 7) return "#eab308";
-  if (m < 9) return "#22c55e";
+  if (m < 8) return "#22c55e";
   return "#3b82f6";
 }
 
 function nivel(m: number) {
   if (m < 5) return "Abaixo do Básico";
   if (m < 7) return "Básico";
-  if (m < 9) return "Adequado";
+  if (m < 8) return "Adequado";
   return "Avançado";
 }
 

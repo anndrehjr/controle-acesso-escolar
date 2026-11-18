@@ -7,6 +7,9 @@ import { cache } from "../../../../lib/cache";
 import { resolveEscolaAccess, podeVerTurma } from "../../../../lib/permissions";
 import type { Aluno, Disciplina, Nota, Turma } from "../../../../lib/analytics/types";
 
+const MEDIA_CRITICA_ACUMULADA = 4.5;
+const MINIMO_DISCIPLINAS_CRITICAS = 3;
+
 /**
  * Quantos alunos têm 3+ disciplinas em risco NESSE bimestre isoladamente
  * (é um snapshot de comparação — cada bimestre é avaliado com os dados só
@@ -47,9 +50,13 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const turmaId = searchParams.get("turma");
     const escolaIdParam = searchParams.get("escolaId");
+    const bimestreParam = Number(searchParams.get("ate") ?? "2");
 
     if (!turmaId) {
       return NextResponse.json({ error: "turma obrigatória" }, { status: 400 });
+    }
+    if (!Number.isInteger(bimestreParam) || bimestreParam < 1 || bimestreParam > 4) {
+      return NextResponse.json({ error: "bimestre final inválido" }, { status: 400 });
     }
 
     const perfil = await checkApiAuth(request);
@@ -88,16 +95,21 @@ export async function GET(request: Request) {
     const escolaRows = await db`SELECT ano_letivo FROM escolas WHERE id = ${escolaId} LIMIT 1`;
     const anoLetivo = (escolaRows[0]?.ano_letivo as number | undefined) ?? new Date().getFullYear();
 
-    const [notasB1, notasB2] = await Promise.all([
-      cache.getOrSet(`notas:${escolaId}:bim:1:turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND bimestre = 1 AND turma_id = ${turmaId}`;
-        return rows as unknown as Nota[];
-      }),
-      cache.getOrSet(`notas:${escolaId}:bim:2:turma:${turmaId}`, async () => {
-        const rows = await db`SELECT * FROM notas WHERE escola_id = ${escolaId} AND bimestre = 2 AND turma_id = ${turmaId}`;
-        return rows as unknown as Nota[];
-      }),
-    ]);
+    const numerosBimestres = Array.from({ length: bimestreParam }, (_, indice) => indice + 1);
+    const notasPorBimestre = await Promise.all(
+      numerosBimestres.map((bimestre) =>
+        cache.getOrSet(`notas:${escolaId}:ano:${anoLetivo}:bim:${bimestre}:turma:${turmaId}`, async () => {
+          const rows = await db`
+            SELECT * FROM notas
+            WHERE escola_id = ${escolaId}
+              AND ano_letivo = ${anoLetivo}
+              AND bimestre = ${bimestre}
+              AND turma_id = ${turmaId}
+          `;
+          return rows as unknown as Nota[];
+        })
+      )
+    );
 
     function buildSnapshot(notas: Nota[], bimestre: number) {
       const dashboard = buildSchoolDashboard({
@@ -135,10 +147,56 @@ export async function GET(request: Request) {
       };
     }
 
+    const nomeDisciplina = new Map(disciplinas.map((disciplina) => [disciplina.id, disciplina.nome]));
+    const notasAteTerceiro = notasPorBimestre
+      .slice(0, Math.min(3, bimestreParam))
+      .flat()
+      .filter((nota) => nota.nota != null);
+    const mediasAcumuladas = new Map<string, Map<string, number[]>>();
+    for (const nota of notasAteTerceiro) {
+      if (!mediasAcumuladas.has(nota.aluno_id)) mediasAcumuladas.set(nota.aluno_id, new Map());
+      const porDisciplina = mediasAcumuladas.get(nota.aluno_id)!;
+      const disciplinaId = String(nota.disciplina_id);
+      if (!porDisciplina.has(disciplinaId)) porDisciplina.set(disciplinaId, []);
+      porDisciplina.get(disciplinaId)!.push(Number(nota.nota));
+    }
+
+    const alunosEmRisco = alunos
+      .map((aluno) => {
+        const porDisciplina = mediasAcumuladas.get(aluno.id) ?? new Map<string, number[]>();
+        const disciplinasCriticas = [...porDisciplina.entries()]
+          .map(([disciplinaId, valores]) => ({
+            disciplinaId,
+            nome: nomeDisciplina.get(disciplinaId) ?? "Disciplina",
+            media: valores.reduce((soma, valor) => soma + valor, 0) / valores.length,
+          }))
+          .filter((disciplina) => disciplina.media < MEDIA_CRITICA_ACUMULADA)
+          .sort((a, b) => a.media - b.media || a.nome.localeCompare(b.nome, "pt-BR"));
+        const todasAsNotas = [...porDisciplina.values()].flat();
+        return {
+          alunoId: aluno.id,
+          nome: aluno.nome,
+          numeroChamada: aluno.numero_chamada,
+          mediaGeral: todasAsNotas.length > 0
+            ? todasAsNotas.reduce((soma, valor) => soma + valor, 0) / todasAsNotas.length
+            : 0,
+          disciplinasCriticas,
+        };
+      })
+      .filter((aluno) => aluno.disciplinasCriticas.length >= MINIMO_DISCIPLINAS_CRITICAS)
+      .sort((a, b) => b.disciplinasCriticas.length - a.disciplinasCriticas.length || a.mediaGeral - b.mediaGeral);
+
     return NextResponse.json({
       turma: { id: turmaData.id, nome: turmaData.nome },
-      b1: buildSnapshot(notasB1, 1),
-      b2: buildSnapshot(notasB2, 2),
+      anoLetivo,
+      bimestreFinal: bimestreParam,
+      bimestres: notasPorBimestre.map((notas, indice) => buildSnapshot(notas, numerosBimestres[indice])),
+      indiceRisco: {
+        ateBimestre: Math.min(3, bimestreParam),
+        mediaLimite: MEDIA_CRITICA_ACUMULADA,
+        minimoDisciplinas: MINIMO_DISCIPLINAS_CRITICAS,
+        alunos: alunosEmRisco,
+      },
     });
   } catch (err) {
     console.error("[comparativo]", err);

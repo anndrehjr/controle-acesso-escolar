@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
 import StyledSelect from "../../../components/StyledSelect";
 import { useUsuarioAtual } from "../../../hooks/useUsuarioAtual";
+import { rolesWithCapability } from "../../../types/roles";
+
+const ROLES_GESTAO_USUARIOS = rolesWithCapability("manageUsuarios");
 
 type Usuario = {
   id: string;
@@ -12,6 +15,11 @@ type Usuario = {
   role: string;
   escola_id: string | null;
   ativo: boolean;
+};
+
+type Escola = {
+  id: string;
+  nome: string;
 };
 
 const inputStyle: React.CSSProperties = {
@@ -24,6 +32,7 @@ const inputStyle: React.CSSProperties = {
 function ConteudoUsuarios() {
   const { usuario, capacidades } = useUsuarioAtual();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [escolas, setEscolas] = useState<Escola[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState<string | null>(null);
@@ -31,10 +40,12 @@ function ConteudoUsuarios() {
   const [novoNome, setNovoNome] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
   const [novoRole, setNovoRole] = useState("PROFESSOR");
+  const [novaEscolaId, setNovaEscolaId] = useState("");
   const [criando, setCriando] = useState(false);
 
   const [resetandoId, setResetandoId] = useState<string | null>(null);
   const [novaSenha, setNovaSenha] = useState("");
+  const [alterandoId, setAlterandoId] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -43,6 +54,9 @@ function ConteudoUsuarios() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao carregar usuários");
       setUsuarios(json.data ?? []);
+      const listaEscolas = (json.escolas ?? []) as Escola[];
+      setEscolas(listaEscolas);
+      setNovaEscolaId((atual) => atual || listaEscolas[0]?.id || "");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro inesperado");
     } finally {
@@ -69,7 +83,7 @@ function ConteudoUsuarios() {
           nome: novoNome,
           email: novoEmail,
           role: novoRole,
-          escolaId: usuario?.escola_id ?? undefined,
+          escolaId: capacidades?.viewAllEscolas ? novaEscolaId : usuario?.escola_id ?? undefined,
         }),
       });
       const json = await res.json();
@@ -100,11 +114,36 @@ function ConteudoUsuarios() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao redefinir senha");
-      setMensagem("Senha redefinida com sucesso.");
+      setMensagem("Senha redefinida e sessões anteriores revogadas.");
       setResetandoId(null);
       setNovaSenha("");
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro inesperado");
+    }
+  }
+
+  async function handleAlterarStatus(alvo: Usuario) {
+    const acao = alvo.ativo ? "desativar" : "ativar";
+    if (!window.confirm(`Confirma ${acao} ${alvo.nome}?`)) return;
+    setAlterandoId(alvo.id);
+    setErro(null);
+    setMensagem(null);
+    try {
+      const res = await fetch(`/api/usuarios/${alvo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !alvo.ativo }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Erro ao alterar usuário");
+      setMensagem(alvo.ativo
+        ? "Usuário desativado e todas as sessões revogadas."
+        : "Usuário ativado com sucesso.");
+      await carregar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro inesperado");
+    } finally {
+      setAlterandoId(null);
     }
   }
 
@@ -146,7 +185,7 @@ function ConteudoUsuarios() {
 
       <form
         onSubmit={handleCriar}
-        className="mt-6 grid gap-3 p-5 sm:grid-cols-4"
+        className={`mt-6 grid gap-3 p-5 ${capacidades?.viewAllEscolas ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}
         style={{
           borderRadius: "var(--radius-sm)",
           border: "1px solid var(--border-subtle)",
@@ -185,9 +224,23 @@ function ConteudoUsuarios() {
           <option value="LEITOR">Somente leitura</option>
           {capacidades?.viewAllEscolas && <option value="ADMIN_ESCOLA">Coordenador</option>}
         </StyledSelect>
+        {capacidades?.viewAllEscolas && (
+          <StyledSelect
+            required
+            value={novaEscolaId}
+            onChange={(e) => setNovaEscolaId(e.target.value)}
+            className="p-2 text-sm sm:col-span-1"
+            style={inputStyle}
+          >
+            <option value="">Escola</option>
+            {escolas.map((escola) => (
+              <option key={escola.id} value={escola.id}>{escola.nome}</option>
+            ))}
+          </StyledSelect>
+        )}
         <button
           type="submit"
-          disabled={criando}
+          disabled={criando || (capacidades?.viewAllEscolas === true && !novaEscolaId)}
           className="p-2 text-sm font-semibold transition disabled:opacity-50"
           style={{
             borderRadius: "var(--radius-sm)",
@@ -289,13 +342,23 @@ function ConteudoUsuarios() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setResetandoId(u.id)}
-                        className="text-xs font-medium transition"
-                        style={{ color: "var(--text-link)" }}
-                      >
-                        Redefinir senha
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => setResetandoId(u.id)}
+                          className="text-xs font-medium transition"
+                          style={{ color: "var(--text-link)" }}
+                        >
+                          Redefinir senha
+                        </button>
+                        <button
+                          onClick={() => void handleAlterarStatus(u)}
+                          disabled={alterandoId === u.id || u.id === usuario?.id}
+                          className="text-xs font-medium transition disabled:opacity-40"
+                          style={{ color: u.ativo ? "var(--status-danger-bg)" : "var(--status-success-bg)" }}
+                        >
+                          {alterandoId === u.id ? "Salvando..." : u.ativo ? "Desativar" : "Ativar"}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -309,7 +372,7 @@ function ConteudoUsuarios() {
 
 export default function UsuariosPage() {
   return (
-    <AuthGuard allow={["SUPER_ADMIN"]}>
+    <AuthGuard allow={ROLES_GESTAO_USUARIOS}>
       <ConteudoUsuarios />
     </AuthGuard>
   );

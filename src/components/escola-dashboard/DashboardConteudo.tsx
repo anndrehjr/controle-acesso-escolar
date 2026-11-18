@@ -23,17 +23,27 @@ import { buildRiscoAcademico } from "../../lib/analytics/buildRiscoAcademico";
 
 import type { Aluno, Disciplina, MatrizDisciplina, Nota, Turma } from "../../lib/analytics/types";
 
-async function buscarNotas(escolaId: string, bimestre: number, turmaId?: string): Promise<Nota[]> {
+async function buscarNotas(
+  escolaId: string,
+  anoLetivo: number,
+  bimestre: number,
+  turmaId?: string
+): Promise<Nota[]> {
   if (turmaId) {
     const rows = await db`
       SELECT * FROM notas
-      WHERE escola_id = ${escolaId} AND bimestre = ${bimestre} AND turma_id = ${turmaId}
+      WHERE escola_id = ${escolaId}
+        AND ano_letivo = ${anoLetivo}
+        AND bimestre = ${bimestre}
+        AND turma_id = ${turmaId}
     `;
     return rows as unknown as Nota[];
   }
   const rows = await db`
     SELECT * FROM notas
-    WHERE escola_id = ${escolaId} AND bimestre = ${bimestre}
+    WHERE escola_id = ${escolaId}
+      AND ano_letivo = ${anoLetivo}
+      AND bimestre = ${bimestre}
   `;
   return rows as unknown as Nota[];
 }
@@ -84,8 +94,12 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
     );
   }
 
-  const bimestreAlvo = bimestreParam ? Number(bimestreParam) : (escola.bimestre_atual as number | undefined) ?? 1;
-  const anoLetivo = (escola.ano_letivo as number | undefined) ?? 2026;
+  const bimestreConfigurado = Number(escola.bimestre_atual ?? 1);
+  const bimestreSolicitado = bimestreParam ? Number(bimestreParam) : bimestreConfigurado;
+  const bimestreAlvo = Number.isInteger(bimestreSolicitado) && bimestreSolicitado >= 1 && bimestreSolicitado <= 4
+    ? bimestreSolicitado
+    : (Number.isInteger(bimestreConfigurado) && bimestreConfigurado >= 1 && bimestreConfigurado <= 4 ? bimestreConfigurado : 1);
+  const anoLetivo = (escola.ano_letivo as number | undefined) ?? new Date().getFullYear();
 
   // PROFESSOR só enxerga as turmas vinculadas a ele; demais papéis com viewAllTurmasDaEscola veem tudo.
   const restringirTurma = !capabilitiesFor(usuario.role).viewAllTurmasDaEscola;
@@ -125,7 +139,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
   ]);
 
   const [notasBrutas, notasAnoBrutas] = await Promise.all([
-    buscarNotas(escolaId, bimestreAlvo, turmaId ?? undefined),
+    buscarNotas(escolaId, anoLetivo, bimestreAlvo, turmaId ?? undefined),
     buscarNotasAnoAte(escolaId, anoLetivo, bimestreAlvo, turmaId ?? undefined),
   ]);
   const notas = turmasPermitidas
@@ -211,6 +225,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
   return (
     <main className="min-h-screen p-6 md:p-8" style={{ background: "var(--bg-app)" }}>
       <HeaderEscola
+        escolaId={escolaId}
         nome={escola.nome as string}
         cidade={(escola.cidade as string | undefined) ?? ""}
         estado={(escola.estado as string | undefined) ?? ""}
@@ -231,7 +246,7 @@ export default async function DashboardConteudo({ usuario, escolaId, searchParam
         abaInicial={
           (tabParam as "visao" | "turmas" | "disciplinas" | "alertas" | "heatmap" | "comparativo") || "visao"
         }
-        comparativo={turmaId ? <ComparativoBimestres turmaId={turmaId} escolaId={escolaId} /> : undefined}
+        comparativo={turmaId ? <ComparativoBimestres turmaId={turmaId} escolaId={escolaId} bimestreFinal={bimestreAlvo} /> : undefined}
         visaoGeral={
           <div className="space-y-8">
             <KPICardsReal

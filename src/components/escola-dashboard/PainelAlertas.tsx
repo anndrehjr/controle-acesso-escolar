@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import StyledSelect from "../StyledSelect"
 
@@ -55,9 +55,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("risco")
   const [alunoSelecionado, setAlunoSelecionado] = useState<AlunoAlerta | null>(null)
   const [drawerAberto, setDrawerAberto] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => { setMounted(true) }, [])
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   const totalCriticos = alunosAlerta.filter(a => a.status === "critico").length
   const totalAtencao = alunosAlerta.filter(a => a.status === "atencao").length
@@ -126,7 +124,7 @@ export default function PainelAlertas({ alunosAlerta, bimestre, turmas }: Props)
               Painel de Alertas
             </h2>
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Risco anual · 3+ disciplinas pré-reprovadas (Pré-Reprovado) · 1–2 disciplinas pré-reprovadas (Atenção)
+              {bimestre}º bimestre · risco anual · 3+ disciplinas pré-reprovadas (Pré-Reprovado) · 1–2 disciplinas pré-reprovadas (Atenção)
             </p>
           </div>
         </div>

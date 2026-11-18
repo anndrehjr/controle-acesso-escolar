@@ -2,48 +2,64 @@ import db from './db'
 import { capabilitiesFor } from '../types/roles'
 import type { JWTPayload } from './auth'
 
-/**
- * Retorna a escola_id que o usuário deve enxergar para uma requisição, ou null se o acesso
- * pedido não for permitido. Uso: sempre que uma rota recebe um escolaId (query/param), validar
- * com esta função antes de consultar o banco — nunca confiar no escolaId do cliente sozinho.
- */
 export function resolveEscolaAccess(user: JWTPayload, escolaIdPedido?: string | null): string | null {
   const caps = capabilitiesFor(user.role)
-
-  if (caps.viewAllEscolas) {
-    // SUPER_ADMIN: pode pedir qualquer escola; sem escolaId, não há uma escola "padrão".
-    return escolaIdPedido ?? user.escola_id
-  }
-
-  // Demais papéis: só a própria escola, e só se bater com o que foi pedido (quando pedido).
+  if (caps.viewAllEscolas) return escolaIdPedido ?? user.escola_id
   if (!user.escola_id) return null
   if (escolaIdPedido && escolaIdPedido !== user.escola_id) return null
   return user.escola_id
 }
 
-/**
- * Turmas que o usuário pode ver. SUPER_ADMIN/ADMIN_ESCOLA/LEITOR veem todas as turmas ativas
- * da escola; PROFESSOR só as turmas vinculadas em professor_turmas.
- */
 export async function turmasVisiveis(user: JWTPayload, escolaId: string): Promise<string[]> {
   const caps = capabilitiesFor(user.role)
-
   if (caps.viewAllTurmasDaEscola) {
     const rows = await db<{ id: string }[]>`
       SELECT id FROM turmas WHERE escola_id = ${escolaId} AND ativo = true
     `
-    return rows.map((r) => r.id)
+    return rows.map((row) => row.id)
   }
 
   const rows = await db<{ turma_id: string }[]>`
     SELECT DISTINCT turma_id FROM professor_vinculos
     WHERE professor_id = ${user.id} AND escola_id = ${escolaId} AND ativo = true
   `
-  return rows.map((r) => r.turma_id)
+  return rows.map((row) => row.turma_id)
 }
 
-/** Verifica se o usuário pode ver uma turma específica (respeitando o escopo de professor). */
 export async function podeVerTurma(user: JWTPayload, escolaId: string, turmaId: string): Promise<boolean> {
   const visiveis = await turmasVisiveis(user, escolaId)
   return visiveis.includes(turmaId)
+}
+
+/**
+ * null significa acesso a todas as disciplinas da turma. Para professor, um vínculo sem
+ * disciplina também concede o diário completo daquela turma; vínculos específicos retornam
+ * somente as disciplinas atribuídas.
+ */
+export async function disciplinasVisiveisNaTurma(
+  user: JWTPayload,
+  escolaId: string,
+  turmaId: string,
+): Promise<string[] | null> {
+  if (capabilitiesFor(user.role).viewAllTurmasDaEscola) return null
+
+  const rows = await db<{ disciplina_id: string | null }[]>`
+    SELECT disciplina_id FROM professor_vinculos
+    WHERE professor_id = ${user.id}
+      AND escola_id = ${escolaId}
+      AND turma_id = ${turmaId}
+      AND ativo = true
+  `
+  if (rows.some((row) => row.disciplina_id === null)) return null
+  return rows.flatMap((row) => row.disciplina_id ? [row.disciplina_id] : [])
+}
+
+export async function podeLancarDisciplina(
+  user: JWTPayload,
+  escolaId: string,
+  turmaId: string,
+  disciplinaId: string,
+): Promise<boolean> {
+  const permitidas = await disciplinasVisiveisNaTurma(user, escolaId, turmaId)
+  return permitidas === null || permitidas.includes(disciplinaId)
 }

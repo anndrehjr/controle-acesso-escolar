@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavigationProgressBar } from "../components/NavigationProgressBar";
 import { TopBar } from "../components/TopBar";
+import { MotionPage } from "../components/MotionPage";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +41,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <NavigationProgressBar />
         <TopBar />
-        {children}
+        <MotionPage>{children}</MotionPage>
       </body>
     </html>
   );

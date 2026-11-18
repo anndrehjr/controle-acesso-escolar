@@ -15,7 +15,7 @@ function corMedia(m: number | null) {
   if (m === null) return "var(--text-secondary)";
   if (m < 5) return "#ef4444";
   if (m < 7) return "#eab308";
-  if (m < 9) return "#22c55e";
+  if (m < 8) return "#22c55e";
   return "#3b82f6";
 }
 
@@ -124,8 +124,8 @@ export default function TabelaComparativa({ disciplinasFundamental, disciplinasM
         {[
           { cor: "#ef4444", texto: "< 5,0 Abaixo do Básico" },
           { cor: "#eab308", texto: "5,0-6,9 Básico" },
-          { cor: "#22c55e", texto: "7,0-8,9 Adequado" },
-          { cor: "#3b82f6", texto: "9,0+ Avançado" },
+          { cor: "#22c55e", texto: "7,0–7,9 Adequado" },
+          { cor: "#3b82f6", texto: "8,0–10 Avançado" },
         ].map(({ cor, texto }) => (
           <div
             key={texto}

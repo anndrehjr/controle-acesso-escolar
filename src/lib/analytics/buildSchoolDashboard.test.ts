@@ -63,7 +63,7 @@ test("filtra por bimestre e ano letivo quando informados", () => {
   assert.equal(resultado.mediaGeral, 9);
 });
 
-test("classifica aluno por nível: crítico <5, básico 5-6.9, adequado 7-8.9, avançado 9+", () => {
+test("classifica aluno por nível: crítico <5, básico 5-6.9, adequado 7-7.9, avançado 8+", () => {
   const alunos = [aluno("a1"), aluno("a2", { numero_chamada: 2 }), aluno("a3", { numero_chamada: 3 })];
   const notas = [nota("a1", "d1", 3), nota("a2", "d1", 6), nota("a3", "d1", 9.5)];
 

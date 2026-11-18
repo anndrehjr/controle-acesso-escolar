@@ -8,6 +8,46 @@
   100% { transform: translateX(100%); }
 }
 
+@media print {
+  .tabela-caderno-dev {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+    font-size: 7.5px !important;
+  }
+  .tabela-caderno-dev th:first-child,
+  .tabela-caderno-dev td:first-child { width: 5% !important; }
+  .tabela-caderno-dev th:nth-child(2),
+  .tabela-caderno-dev td:nth-child(2) { width: 24% !important; }
+  .tabela-caderno-dev th,
+  .tabela-caderno-dev td { padding: 3px 2px !important; }
+  .tabela-caderno-dev .sticky { position: static !important; }
+  .nota-caderno-input {
+    width: 100% !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: #000000 !important;
+    padding: 0 !important;
+    font-size: 8px !important;
+    font-weight: 800 !important;
+  }
+}
+
+@keyframes ui-rise-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.995); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ui-pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.975); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ui-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /*
  * Identidade evolutiva do Escola.André: mesma base da produção (tema escuro
  * como padrão, escala neutra tipo zinc, azul como único acento, semânticas
@@ -110,10 +150,191 @@
   --focus-ring: 0 0 0 3px rgba(29, 78, 216, 0.25);
 }
 
+.prova-aviso { color: #fde68a; }
+[data-theme="light"] .prova-aviso { color: #7a5800; }
+.aviso-ambar { color: #fde68a; }
+[data-theme="light"] .aviso-ambar { color: #7a5800; }
+
 body {
   background: var(--bg-app);
   color: var(--text-primary);
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* Motion UI: entrada progressiva do conteúdo sem atrasar a interação. */
+.motion-page main > div > header,
+.motion-page main > div > section,
+.motion-page main > section {
+  animation: ui-rise-in 0.46s both cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.motion-page main > div > :nth-child(2) { animation-delay: 45ms; }
+.motion-page main > div > :nth-child(3) { animation-delay: 80ms; }
+.motion-page main > div > :nth-child(4) { animation-delay: 115ms; }
+.motion-page main > div > :nth-child(n + 5) { animation-delay: 145ms; }
+
+.motion-tab-content {
+  animation: ui-rise-in 0.32s both cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Feedback tátil visual para os elementos realmente interativos. */
+button,
+a,
+[role="button"] {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform, filter;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+button:not(:disabled):active,
+a:active,
+[role="button"]:active {
+  transform: scale(0.975);
+}
+
+button:not(:disabled):focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Modais aparecem acima de um fundo que entra suavemente. */
+.motion-page [class*="fixed"][class*="inset-0"] {
+  animation: ui-backdrop-in 0.2s both ease-out;
+}
+
+.motion-page [class*="fixed"][class*="inset-0"] > div {
+  animation: ui-pop-in 0.3s both cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover,
+  [role="button"]:hover {
+    filter: brightness(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  @page { size: A4 portrait; margin: 10mm 9mm 10mm; }
+  .nao-imprimir { display: none !important; }
+  :root, [data-theme="dark"], [data-theme="light"] {
+    color-scheme: light;
+    --bg-app: #ffffff;
+    --bg-card: #ffffff;
+    --bg-sidebar-active: #dbeafe;
+    --border-subtle: #111111;
+    --border-strong: #000000;
+    --text-primary: #000000;
+    --text-secondary: #111111;
+    --brand-primary: #003b82;
+    --brand-primary-solid: #003b82;
+    --status-danger-bg: #b00020;
+    --status-danger-solid: #8b0018;
+    --status-danger-tint: #ffe1e6;
+    --status-success-bg: #006b2e;
+    --status-success-solid: #005523;
+    --status-warning-bg: #8a4300;
+  }
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    text-shadow: none !important;
+  }
+  html, body { background: #ffffff !important; color: #000000 !important; }
+  main { padding: 0 !important; min-height: auto !important; }
+  main > section { margin-top: 0 !important; }
+  h1, h2, h3, h4, p, span, strong, td, th { opacity: 1 !important; }
+  section, article, div { box-shadow: none !important; }
+  table {
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    color: #000000 !important;
+    font-size: 9px;
+  }
+  thead { display: table-header-group; }
+  th {
+    background: #d9dee7 !important;
+    border: 1.4px solid #000000 !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+  }
+  td {
+    border: 1px solid #303030 !important;
+    color: #000000 !important;
+  }
+  tr { break-inside: avoid; }
+  .cabecalho-relatorio {
+    border-color: #000000 !important;
+    border-width: 0 0 2px !important;
+    margin-bottom: 7px !important;
+    padding-bottom: 6px !important;
+  }
+  .resumo-intervencao { margin-bottom: 7px !important; }
+  .resumo-intervencao > div,
+  .resumo-impressao > div {
+    background: #ffffff !important;
+    border: 1.4px solid #000000 !important;
+    color: #000000 !important;
+    padding: 7px !important;
+  }
+  .bloco-intervencao {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1.5px solid #8b0018 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    margin-bottom: 6px !important;
+  }
+  .bloco-intervencao header { background: #ffe1e6 !important; color: #000000 !important; }
+  .tabela-intervencao { overflow: visible !important; }
+  .report-table { min-width: 0 !important; width: 100% !important; table-layout: fixed; }
+  .report-table th:first-child, .report-table td:first-child { width: 34%; }
+  .modo-completo header { padding: 7px 9px !important; }
+  .modo-completo .report-table th, .modo-completo .report-table td { padding-top: 4px !important; padding-bottom: 4px !important; }
+  .modo-compacto header { padding: 4px 7px !important; }
+  .modo-compacto .report-table th, .modo-compacto .report-table td { padding-top: 2px !important; padding-bottom: 2px !important; }
+  .relatorio-impressao {
+    color: #000000 !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+  }
+  .relatorio-impressao > header {
+    border-color: #000000 !important;
+    border-width: 0 0 2.5px !important;
+  }
+  .tabela-relatorio-baixas {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+  .tabela-relatorio-baixas th:nth-child(1) { width: 21%; }
+  .tabela-relatorio-baixas th:nth-child(2) { width: 11%; }
+  .tabela-relatorio-baixas th:nth-child(3) { width: 7%; }
+  .tabela-relatorio-baixas th:nth-child(4) { width: 21%; }
+  .tabela-relatorio-baixas th:nth-child(n+5) { width: 8%; }
+  .cabecalho-turma-impressao td {
+    background: #c9dcf5 !important;
+    border: 1.6px solid #003b82 !important;
+    color: #001f4d !important;
+    font-size: 11px !important;
+    font-weight: 900 !important;
+  }
+  .codigo-curricular-impressao { color: #003b82 !important; font-weight: 900 !important; }
+  .nota-critica-impressao { color: #b00020 !important; font-weight: 900 !important; }
 }

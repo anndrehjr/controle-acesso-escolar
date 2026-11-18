@@ -1,28 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Sun, Moon } from "lucide-react";
 
+const subscribe = () => () => {};
+
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    return localStorage.getItem("theme") === "light" ? "light" : "dark";
+  });
 
   useEffect(() => {
-    setMounted(true);
-    const saved = localStorage.getItem("theme") as "dark" | "light" | null;
-    const initial = saved ?? "dark";
-    setTheme(initial);
-    document.documentElement.setAttribute("data-theme", initial);
-  }, []);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   function toggle() {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
     localStorage.setItem("theme", next);
   }
 
-  // Evita mismatch de hidratação mostrando somente após mount no cliente
   if (!mounted) return <div className="h-6 w-6" aria-hidden />;
 
   return (
@@ -32,18 +31,10 @@ export function ThemeToggle() {
       title={theme === "dark" ? "Tema claro" : "Tema escuro"}
       className="flex h-6 w-6 items-center justify-center rounded-full transition"
       style={{ color: "var(--text-secondary)" }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--brand-primary)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "var(--text-secondary)";
-      }}
+      onMouseEnter={(e) => { e.currentTarget.style.color = "var(--brand-primary)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; }}
     >
-      {theme === "dark" ? (
-        <Sun className="h-3 w-3" aria-hidden />
-      ) : (
-        <Moon className="h-3 w-3" aria-hidden />
-      )}
+      {theme === "dark" ? <Sun className="h-3 w-3" aria-hidden /> : <Moon className="h-3 w-3" aria-hidden />}
     </button>
   );
 }

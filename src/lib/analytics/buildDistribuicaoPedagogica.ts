@@ -52,8 +52,8 @@ export function buildDistribuicaoPedagogica({
 
     const critico = mediasValidas.filter((m) => m < 5).length;
     const basico = mediasValidas.filter((m) => m >= 5 && m < 7).length;
-    const adequado = mediasValidas.filter((m) => m >= 7 && m < 9).length;
-    const avancado = mediasValidas.filter((m) => m >= 9).length;
+    const adequado = mediasValidas.filter((m) => m >= 7 && m < 8).length;
+    const avancado = mediasValidas.filter((m) => m >= 8).length;
 
     return {
       turma: turma.nome,

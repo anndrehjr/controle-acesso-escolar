@@ -9,6 +9,7 @@ import TurmaSeletor from "./TurmaSeletor";
 type Turma = { id: string; nome: string };
 
 type Props = {
+  escolaId: string;
   nome: string;
   cidade: string;
   estado: string;
@@ -19,6 +20,7 @@ type Props = {
 };
 
 export default function HeaderEscola({
+  escolaId,
   nome,
   cidade,
   estado,
@@ -113,7 +115,7 @@ export default function HeaderEscola({
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/analytics" className="flex items-center gap-2 px-3 py-2 text-sm font-medium" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)" }}><BarChart2 className="h-4 w-4" />Visao Geral</Link><div className="h-6 w-px hidden sm:block" style={{ background: "var(--border-subtle)" }} /><TurmaSeletor turmas={turmas} turmaAtualId={turmaAtualId} />
+          <Link href={`/analytics?escolaId=${encodeURIComponent(escolaId)}`} className="flex items-center gap-2 px-3 py-2 text-sm font-medium" style={{ background: "var(--bg-app)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)" }}><BarChart2 className="h-4 w-4" />Visao Geral</Link><div className="h-6 w-px hidden sm:block" style={{ background: "var(--border-subtle)" }} /><TurmaSeletor turmas={turmas} turmaAtualId={turmaAtualId} />
           <div
             className="h-6 w-px hidden sm:block"
             style={{ background: "var(--border-subtle)" }}

@@ -1,19 +1,19 @@
-type RecomposicaoItem = {
+type VariacaoAbaixoMediaItem = {
   disciplina: { id: string; nome: string };
   abaixoB1: number;
   abaixoB2: number;
-  recuperados: number;
+  reducaoAbaixoMedia: number;
 };
 
 type Props = {
-  disciplinas: RecomposicaoItem[];
+  disciplinas: VariacaoAbaixoMediaItem[];
 };
 
-export default function RecomposicaoCard({ disciplinas }: Props) {
-  const totalRecuperados = disciplinas.reduce((s, d) => s + d.recuperados, 0);
+export default function VariacaoAbaixoMediaCard({ disciplinas }: Props) {
+  const totalReducao = disciplinas.reduce((s, d) => s + d.reducaoAbaixoMedia, 0);
   const totalAbaixoB1 = disciplinas.reduce((s, d) => s + d.abaixoB1, 0);
   const percentual = totalAbaixoB1 > 0
-    ? ((totalRecuperados / totalAbaixoB1) * 100).toFixed(0)
+    ? ((totalReducao / totalAbaixoB1) * 100).toFixed(0)
     : null;
 
   return (
@@ -27,22 +27,22 @@ export default function RecomposicaoCard({ disciplinas }: Props) {
             className="mb-2 inline-flex rounded-full border px-3 py-1 text-xs font-medium"
             style={{ borderColor: "var(--border-subtle)", background: "var(--bg-app)", color: "var(--text-secondary)" }}
           >
-            Recomposicao da aprendizagem
+            Comparacao entre bimestres
           </div>
           <h2 className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>
-            Recuperacao entre Bimestres
+            Variacao de notas abaixo da media
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Alunos abaixo de 5,0: 1o vs 2o bimestre
+            Total de notas abaixo de 5,0 no 1o e no 2o bimestre. Este indicador e agregado e nao representa recuperacao individual.
           </p>
         </div>
-        {totalRecuperados > 0 && (
+        {totalReducao > 0 && (
           <div
             className="shrink-0 rounded-2xl border px-5 py-3 text-center"
             style={{ borderColor: "#22c55e40", background: "#22c55e10" }}
           >
-            <p className="text-3xl font-black" style={{ color: "#22c55e" }}>{totalRecuperados}</p>
-            <p className="text-xs font-medium" style={{ color: "#22c55e" }}>alunos recuperados</p>
+            <p className="text-3xl font-black" style={{ color: "#22c55e" }}>{totalReducao}</p>
+            <p className="text-xs font-medium" style={{ color: "#22c55e" }}>ocorrencias a menos</p>
           </div>
         )}
       </div>
@@ -58,13 +58,13 @@ export default function RecomposicaoCard({ disciplinas }: Props) {
             >
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{d.disciplina.nome}</p>
-                {d.recuperados > 0 ? (
+                {d.reducaoAbaixoMedia > 0 ? (
                   <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: "#22c55e18", color: "#22c55e" }}>
-                    +{d.recuperados} sairam da zona critica
+                    {d.reducaoAbaixoMedia} ocorrencias a menos
                   </span>
                 ) : diff < 0 ? (
                   <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: "#ef444418", color: "#ef4444" }}>
-                    {Math.abs(diff)} novos abaixo
+                    {Math.abs(diff)} ocorrencias a mais
                   </span>
                 ) : (
                   <span className="text-xs" style={{ color: "var(--text-secondary)" }}>sem alteracao</span>
@@ -87,12 +87,12 @@ export default function RecomposicaoCard({ disciplinas }: Props) {
         })}
       </div>
 
-      {percentual !== null && totalRecuperados > 0 && (
+      {percentual !== null && totalReducao > 0 && (
         <p
           className="mt-4 text-sm text-center font-medium pt-4"
           style={{ color: "#22c55e", borderTop: "1px solid var(--border-subtle)" }}
         >
-          {percentual}% dos alunos que estavam abaixo no 1o bimestre melhoraram no 2o.
+          Reducao agregada de {percentual}% nas ocorrencias abaixo de 5,0 entre os dois bimestres.
         </p>
       )}
     </div>

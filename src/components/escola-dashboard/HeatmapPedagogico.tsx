@@ -35,11 +35,11 @@ type HeatmapData = {
 function getStyleNota(nota: number | null): React.CSSProperties {
   if (nota === null)
     return { background: "var(--border-subtle)", color: "var(--text-secondary)" };
-  if (nota <= 4)
+  if (nota < 5)
     return { background: "var(--status-danger-tint)", color: "var(--status-danger-bg)" };
-  if (nota <= 6)
+  if (nota < 7)
     return { background: "var(--status-warning-tint)", color: "var(--status-warning-bg)" };
-  if (nota <= 8)
+  if (nota < 8)
     return { background: "var(--status-success-tint)", color: "var(--status-success-bg)" };
   return { background: "rgba(91,156,246,0.18)", color: "var(--brand-primary)" };
 }
@@ -358,10 +358,10 @@ export default function HeatmapPedagogico({ bimestre, turmaId, escolaId }: Props
       </div>
 
       <div className="relative z-10 mt-6 flex flex-wrap gap-3">
-        <Legenda cor="bg-red-500" texto="1-4 Abaixo do Basico" />
-        <Legenda cor="bg-yellow-500" texto="5-6 Basico" />
-        <Legenda cor="bg-green-500" texto="7-8 Adequado" />
-        <Legenda cor="bg-blue-500" texto="9-10 Avancado" />
+        <Legenda cor="bg-red-500" texto="Abaixo de 5,0 · Abaixo do Básico" />
+        <Legenda cor="bg-yellow-500" texto="5,0–6,9 · Básico" />
+        <Legenda cor="bg-green-500" texto="7,0–7,9 · Adequado" />
+        <Legenda cor="bg-blue-500" texto="8,0–10 · Avançado" />
       </div>
 
       <div

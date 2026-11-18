@@ -15,7 +15,7 @@ function corMedia(m: number | null) {
   if (m === null) return "var(--text-secondary)";
   if (m < 5) return "#ef4444";
   if (m < 7) return "#eab308";
-  if (m < 9) return "#22c55e";
+  if (m < 8) return "#22c55e";
   return "#3b82f6";
 }
 

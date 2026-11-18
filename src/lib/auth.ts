@@ -26,7 +26,16 @@ export interface JWTPayload {
   lembrar?: boolean
   /** Identificador único do token — permite revogar uma sessão específica no logout (F-04) */
   jti?: string
+  /** Versao global da sessao; incrementada em reset de senha ou desativacao. */
+  session_version?: number
   exp?: number
+}
+
+export function sessaoDoTokenEhValida(
+  payload: Pick<JWTPayload, 'session_version'>,
+  usuario: { ativo: boolean; session_version: number },
+): boolean {
+  return usuario.ativo && (payload.session_version ?? 0) === usuario.session_version
 }
 
 // Checagem só em runtime de requisição (nunca no import do módulo) — se rodasse no import,
@@ -75,12 +84,15 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret())
     const p = payload as unknown as JWTPayload
-    if (p.jti) {
-      const revogado = await db<{ jti: string }[]>`
-        SELECT jti FROM tokens_revogados WHERE jti = ${p.jti} LIMIT 1
-      `
-      if (revogado.length > 0) return null
-    }
+    const usuarios = await db<{ ativo: boolean; session_version: number; revogado: boolean }[]>`
+      SELECT u.ativo, u.session_version,
+             EXISTS (SELECT 1 FROM tokens_revogados tr WHERE tr.jti = ${p.jti ?? ''}) AS revogado
+      FROM usuarios u
+      WHERE u.id = ${p.id}
+      LIMIT 1
+    `
+    const estado = usuarios[0]
+    if (!estado || estado.revogado || !sessaoDoTokenEhValida(p, estado)) return null
     return p
   } catch {
     return null
@@ -132,4 +144,21 @@ export async function checkApiAuth(req: Request): Promise<JWTPayload | null> {
  */
 export function isDevMaster(payload: JWTPayload | null): boolean {
   return Boolean(payload && payload.role === 'DEV_MASTER' && payload.is_dev_master === true)
+}
+
+/**
+ * Ajuste excepcional de notas: Dev Master exclusivo ou a conta nominal AndreDev.
+ * A exceção exige simultaneamente e-mail exato e papel SUPER_ADMIN; promover outro
+ * usuário a SUPER_ADMIN não concede este acesso automaticamente.
+ */
+export function podeAjustarNotas(payload: JWTPayload | null): boolean {
+  if (isDevMaster(payload)) return true
+  // E-mail da conta nominal vem do ambiente (AJUSTE_NOTAS_EMAIL), nunca fixo no código: este repositório é público.
+  const emailExcepcional = (process.env.AJUSTE_NOTAS_EMAIL ?? '').trim().toLowerCase()
+  return Boolean(
+    payload &&
+      emailExcepcional !== '' &&
+      payload.role === 'SUPER_ADMIN' &&
+      payload.email.trim().toLowerCase() === emailExcepcional
+  )
 }
